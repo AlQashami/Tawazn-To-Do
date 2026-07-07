@@ -38,6 +38,7 @@ let dateFilter = "all";
 let assigneeFilter = "all";
 let tagFilter = "all";
 const expandedIds = new Set();
+const openDetailsIds = new Set();
 let editingTaskId = null;
 let addingParentId = null;
 let currentTags = [];
@@ -261,14 +262,23 @@ function renderTaskCard(task, level) {
 
   const children = getChildren(task.id);
   const isExpanded = expandedIds.has(task.id);
+  const detailsOpen = openDetailsIds.has(task.id);
   const progress = computeProgress(task.id);
 
+  const toggleDetails = () => {
+    if (openDetailsIds.has(task.id)) openDetailsIds.delete(task.id);
+    else openDetailsIds.add(task.id);
+    render();
+  };
+
+  /* ---- الصف المختصر: كل ما تحتاجينه بلمحة واحدة فقط ---- */
   const row = document.createElement("div");
   row.className = "task-row";
 
   if (children.length > 0) {
     const toggle = document.createElement("button");
     toggle.className = "expand-toggle";
+    toggle.title = isExpanded ? "طي المهام الفرعية" : "عرض المهام الفرعية";
     toggle.textContent = isExpanded ? "▼" : "◀";
     toggle.addEventListener("click", () => {
       if (isExpanded) expandedIds.delete(task.id);
@@ -278,8 +288,7 @@ function renderTaskCard(task, level) {
     row.appendChild(toggle);
   } else {
     const spacer = document.createElement("span");
-    spacer.style.width = "22px";
-    spacer.style.display = "inline-block";
+    spacer.className = "expand-spacer";
     row.appendChild(spacer);
   }
 
@@ -295,26 +304,39 @@ function renderTaskCard(task, level) {
 
   const main = document.createElement("div");
   main.className = "task-main";
+  main.addEventListener("click", toggleDetails);
+
   const title = document.createElement("div");
   title.className = "task-title";
   title.textContent = task.title;
   main.appendChild(title);
 
-  const meta = document.createElement("div");
-  meta.className = "task-meta";
   const isOverdue = task.due_date && task.due_date < todayStr() && task.status !== "مكتملة";
-  meta.innerHTML = `
-    <span>${task.assignee}</span>
-    ${task.due_date ? `<span class="${isOverdue ? "due-overdue" : ""}">استحقاق: ${formatDisplayDate(task.due_date)}</span>` : ""}
-  `;
-  main.appendChild(meta);
+  const hasMeta = task.due_date || progress || (task.tags && task.tags.length > 0);
+  if (hasMeta) {
+    const meta = document.createElement("div");
+    meta.className = "task-meta";
 
-  if (progress) {
-    const pct = Math.round((progress.completed / progress.total) * 100);
-    const bar = document.createElement("div");
-    bar.className = "progress-bar-outer";
-    bar.innerHTML = `<div class="progress-bar-inner" style="width:${pct}%"></div>`;
-    main.appendChild(bar);
+    const assigneeSpan = document.createElement("span");
+    assigneeSpan.className = "meta-assignee";
+    assigneeSpan.textContent = task.assignee;
+    meta.appendChild(assigneeSpan);
+
+    if (task.due_date) {
+      const dueSpan = document.createElement("span");
+      dueSpan.className = isOverdue ? "due-overdue" : "";
+      dueSpan.textContent = `استحقاق: ${formatDisplayDate(task.due_date)}`;
+      meta.appendChild(dueSpan);
+    }
+
+    if (progress) {
+      const progSpan = document.createElement("span");
+      progSpan.className = "meta-progress";
+      progSpan.textContent = `${progress.completed}/${progress.total} مكتملة`;
+      meta.appendChild(progSpan);
+    }
+
+    main.appendChild(meta);
   }
 
   if (task.tags && task.tags.length > 0) {
@@ -330,97 +352,118 @@ function renderTaskCard(task, level) {
     main.appendChild(tagsWrap);
   }
 
-  const notesArea = document.createElement("textarea");
-  notesArea.className = "task-notes-input";
-  notesArea.placeholder = "أضف ملاحظة هنا...";
-  notesArea.rows = 1;
-  notesArea.value = task.notes || "";
-  attachDigitSanitizer(notesArea);
-  notesArea.addEventListener("change", () => {
-    const val = notesArea.value.trim();
-    if (val !== (task.notes || "")) updateTask(task.id, { notes: val || null });
-  });
-  notesArea.addEventListener("click", (e) => e.stopPropagation());
-  main.appendChild(notesArea);
-
-  const linked = links.filter((l) => l.source_task_id === task.id);
-  if (linked.length > 0) {
-    const linkedWrap = document.createElement("div");
-    linkedWrap.className = "linked-tasks";
-    linkedWrap.innerHTML = `<div class="linked-tasks-title">مهام مرتبطة:</div>`;
-    linked.forEach((l) => {
-      const target = tasksById[l.target_task_id];
-      if (!target) return;
-      const chip = document.createElement("span");
-      chip.className = "linked-task-chip";
-      chip.innerHTML = `<span>${target.title}</span>`;
-      const removeBtn = document.createElement("button");
-      removeBtn.textContent = "✕";
-      removeBtn.addEventListener("click", () => removeLink(l.id));
-      chip.appendChild(removeBtn);
-      linkedWrap.appendChild(chip);
-    });
-    main.appendChild(linkedWrap);
-  }
-
-  const lastEdited = document.createElement("div");
-  lastEdited.className = "last-edited";
-  if (task.last_edited_by) {
-    lastEdited.textContent = `آخر تحديث: ${task.last_edited_by}${task.last_edited_at ? " · " + formatDisplayDate(task.last_edited_at.slice(0, 10)) : ""}`;
-  }
-  main.appendChild(lastEdited);
-
   row.appendChild(main);
 
-  const sortWrap = document.createElement("div");
-  sortWrap.className = "sort-buttons";
-  const upBtn = document.createElement("button");
-  upBtn.textContent = "▲";
-  upBtn.title = "تحريك للأعلى";
-  upBtn.addEventListener("click", () => moveTask(task, -1));
-  const downBtn = document.createElement("button");
-  downBtn.textContent = "▼";
-  downBtn.title = "تحريك للأسفل";
-  downBtn.addEventListener("click", () => moveTask(task, 1));
-  sortWrap.appendChild(upBtn);
-  sortWrap.appendChild(downBtn);
-  row.appendChild(sortWrap);
+  const moreBtn = document.createElement("button");
+  moreBtn.type = "button";
+  moreBtn.className = `more-toggle${detailsOpen ? " active" : ""}`;
+  moreBtn.title = "تفاصيل وخيارات";
+  moreBtn.textContent = "⋯";
+  moreBtn.addEventListener("click", toggleDetails);
+  row.appendChild(moreBtn);
 
-  const actions = document.createElement("div");
-  actions.className = "task-actions";
-
-  if (level < MAX_LEVEL) {
-    const addSubBtn = document.createElement("button");
-    addSubBtn.className = "btn-icon";
-    addSubBtn.title = "إضافة مهمة فرعية";
-    addSubBtn.textContent = "➕";
-    addSubBtn.addEventListener("click", () => openTaskModal({ parentId: task.id }));
-    actions.appendChild(addSubBtn);
-  }
-
-  const linkBtn = document.createElement("button");
-  linkBtn.className = "btn-icon";
-  linkBtn.title = "ربط مهمة";
-  linkBtn.textContent = "🔗";
-  linkBtn.addEventListener("click", () => toggleLinkPicker(task.id, card));
-  actions.appendChild(linkBtn);
-
-  const editBtn = document.createElement("button");
-  editBtn.className = "btn-icon";
-  editBtn.title = "تعديل";
-  editBtn.textContent = "✏️";
-  editBtn.addEventListener("click", () => openTaskModal({ task }));
-  actions.appendChild(editBtn);
-
-  const deleteBtn = document.createElement("button");
-  deleteBtn.className = "btn-icon";
-  deleteBtn.title = "حذف";
-  deleteBtn.textContent = "🗑️";
-  deleteBtn.addEventListener("click", () => deleteTask(task.id));
-  actions.appendChild(deleteBtn);
-
-  row.appendChild(actions);
   card.appendChild(row);
+
+  /* ---- لوحة التفاصيل: تظهر فقط عند الحاجة (ملاحظات، ربط، إجراءات) ---- */
+  if (detailsOpen) {
+    const details = document.createElement("div");
+    details.className = "task-details";
+
+    const notesArea = document.createElement("textarea");
+    notesArea.className = "task-notes-input";
+    notesArea.placeholder = "أضف ملاحظة هنا...";
+    notesArea.rows = 2;
+    notesArea.value = task.notes || "";
+    attachDigitSanitizer(notesArea);
+    notesArea.addEventListener("change", () => {
+      const val = notesArea.value.trim();
+      if (val !== (task.notes || "")) updateTask(task.id, { notes: val || null });
+    });
+    details.appendChild(notesArea);
+
+    const linked = links.filter((l) => l.source_task_id === task.id);
+    if (linked.length > 0) {
+      const linkedWrap = document.createElement("div");
+      linkedWrap.className = "linked-tasks";
+      linkedWrap.innerHTML = `<div class="linked-tasks-title">مهام مرتبطة:</div>`;
+      linked.forEach((l) => {
+        const target = tasksById[l.target_task_id];
+        if (!target) return;
+        const chip = document.createElement("span");
+        chip.className = "linked-task-chip";
+        chip.innerHTML = `<span>${target.title}</span>`;
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "✕";
+        removeBtn.addEventListener("click", () => removeLink(l.id));
+        chip.appendChild(removeBtn);
+        linkedWrap.appendChild(chip);
+      });
+      details.appendChild(linkedWrap);
+    }
+
+    if (task.last_edited_by) {
+      const lastEdited = document.createElement("div");
+      lastEdited.className = "last-edited";
+      lastEdited.textContent = `آخر تحديث: ${task.last_edited_by}${task.last_edited_at ? " · " + formatDisplayDate(task.last_edited_at.slice(0, 10)) : ""}`;
+      details.appendChild(lastEdited);
+    }
+
+    const actionsRow = document.createElement("div");
+    actionsRow.className = "details-actions";
+
+    const sortWrap = document.createElement("div");
+    sortWrap.className = "sort-buttons";
+    const upBtn = document.createElement("button");
+    upBtn.type = "button";
+    upBtn.textContent = "▲";
+    upBtn.title = "تحريك للأعلى";
+    upBtn.addEventListener("click", () => moveTask(task, -1));
+    const downBtn = document.createElement("button");
+    downBtn.type = "button";
+    downBtn.textContent = "▼";
+    downBtn.title = "تحريك للأسفل";
+    downBtn.addEventListener("click", () => moveTask(task, 1));
+    sortWrap.appendChild(upBtn);
+    sortWrap.appendChild(downBtn);
+    actionsRow.appendChild(sortWrap);
+
+    if (level < MAX_LEVEL) {
+      const addSubBtn = document.createElement("button");
+      addSubBtn.type = "button";
+      addSubBtn.className = "btn-icon";
+      addSubBtn.title = "إضافة مهمة فرعية";
+      addSubBtn.textContent = "➕";
+      addSubBtn.addEventListener("click", () => openTaskModal({ parentId: task.id }));
+      actionsRow.appendChild(addSubBtn);
+    }
+
+    const linkBtn = document.createElement("button");
+    linkBtn.type = "button";
+    linkBtn.className = "btn-icon";
+    linkBtn.title = "ربط مهمة";
+    linkBtn.textContent = "🔗";
+    linkBtn.addEventListener("click", () => toggleLinkPicker(task.id, details));
+    actionsRow.appendChild(linkBtn);
+
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "btn-icon";
+    editBtn.title = "تعديل";
+    editBtn.textContent = "✏️";
+    editBtn.addEventListener("click", () => openTaskModal({ task }));
+    actionsRow.appendChild(editBtn);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "btn-icon";
+    deleteBtn.title = "حذف";
+    deleteBtn.textContent = "🗑️";
+    deleteBtn.addEventListener("click", () => deleteTask(task.id));
+    actionsRow.appendChild(deleteBtn);
+
+    details.appendChild(actionsRow);
+    card.appendChild(details);
+  }
 
   if (children.length > 0 && isExpanded) {
     const childrenWrap = document.createElement("div");
@@ -434,8 +477,8 @@ function renderTaskCard(task, level) {
   return card;
 }
 
-function toggleLinkPicker(taskId, card) {
-  const existing = card.querySelector(".link-picker-inline");
+function toggleLinkPicker(taskId, container) {
+  const existing = container.querySelector(".link-picker-inline");
   if (existing) {
     existing.remove();
     return;
@@ -474,7 +517,7 @@ function toggleLinkPicker(taskId, card) {
 
   wrap.appendChild(select);
   wrap.appendChild(confirmBtn);
-  card.querySelector(".task-main").appendChild(wrap);
+  container.appendChild(wrap);
 }
 
 /* ---------- عمليات قاعدة البيانات ---------- */

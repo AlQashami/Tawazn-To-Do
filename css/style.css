@@ -282,6 +282,12 @@ body {
   cursor: pointer;
   width: 22px;
   flex-shrink: 0;
+  color: var(--text-muted);
+}
+.expand-spacer {
+  width: 22px;
+  display: inline-block;
+  flex-shrink: 0;
 }
 .status-toggle {
   flex-shrink: 0;
@@ -315,7 +321,7 @@ body {
   font-size: 14px;
   font-weight: 900;
 }
-.task-main { flex: 1; min-width: 0; }
+.task-main { flex: 1; min-width: 0; cursor: pointer; }
 .task-title { font-weight: 700; font-size: 15px; }
 .task-meta {
   display: flex;
@@ -326,21 +332,40 @@ body {
   flex-wrap: wrap;
 }
 .due-overdue { color: #c62828; font-weight: 700; }
-.task-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.meta-progress { color: var(--color-doing); font-weight: 700; }
 
-.progress-bar-outer {
-  height: 6px;
-  background: var(--border);
-  border-radius: 4px;
+/* زر "المزيد" في نهاية كل صف — يفتح لوحة التفاصيل بدل ازدحام الصف بأزرار */
+.more-toggle {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.more-toggle:hover { background: var(--border); color: var(--text); }
+.more-toggle.active { background: var(--border); color: var(--text); }
+
+/* لوحة التفاصيل: تظهر فقط عند فتحها — تحوي الملاحظة والإجراءات بدل ازدحام الصف */
+.task-details {
   margin-top: 8px;
-  overflow: hidden;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
-.progress-bar-inner {
-  height: 100%;
-  background: linear-gradient(90deg, var(--color-munther), var(--color-done));
-  border-radius: 4px;
-  transition: width 0.3s;
+.details-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
 }
+.details-actions .sort-buttons { flex-direction: row; }
 
 .task-notes-input {
   display: block;
@@ -352,7 +377,6 @@ body {
   border: 1px dashed var(--border);
   border-radius: 6px;
   padding: 6px 8px;
-  margin-top: 8px;
   resize: vertical;
   min-height: 34px;
   transition: border-color 0.2s ease, color 0.2s ease;
@@ -547,9 +571,7 @@ body {
   .filter-btn { padding: 6px 12px; font-size: 13px; }
 
   .task-card { padding: 12px; }
-  .task-row { flex-wrap: wrap; row-gap: 8px; }
-  .task-main { flex-basis: 100%; }
-  .sort-buttons { margin-inline-start: auto; flex-direction: row; gap: 4px; }
+  .details-actions { gap: 6px; }
 
   .btn-icon { padding: 6px 8px; font-size: 19px; }
   .status-toggle { width: 28px; height: 28px; }
