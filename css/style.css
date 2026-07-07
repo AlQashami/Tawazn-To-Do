@@ -470,6 +470,24 @@ body {
 .more-toggle:hover { background: var(--border); color: var(--text); }
 .more-toggle.active { background: var(--border); color: var(--text); }
 
+/* أزرار الملاحظة والتعليقات على الصف مباشرة، بجانب زر "⋯" */
+.row-icon-toggle {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-muted);
+  padding: 4px 6px;
+  border-radius: 8px;
+  opacity: 0.55;
+  transition: background-color 0.15s ease, color 0.15s ease, opacity 0.15s ease;
+}
+.row-icon-toggle:hover { background: var(--border); color: var(--text); opacity: 1; }
+.row-icon-toggle.active { background: var(--border); color: var(--text); opacity: 1; }
+.row-icon-toggle.has-content { opacity: 1; }
+
 /* زر "+" لإضافة مهمة فرعية سريعة تحت المهمة مباشرة (مهمة رئيسية أو فرعية) */
 .add-child-toggle {
   flex-shrink: 0;
@@ -550,7 +568,11 @@ body {
 }
 .task-notes-input::placeholder { color: var(--text-muted); opacity: 0.6; }
 
-/* سجل الملاحظات/التعليقات لكل مهمة — بديل الملاحظة الوحيدة القابلة للمسح */
+.notes-wrap { display: flex; flex-direction: column; gap: 8px; }
+.notes-actions { display: flex; justify-content: flex-end; }
+.btn-sm { padding: 6px 14px; font-size: 13px; border-radius: 8px; }
+
+/* سجل التعليقات لكل مهمة */
 .comments-wrap { display: flex; flex-direction: column; gap: 8px; }
 .comments-feed {
   display: flex;

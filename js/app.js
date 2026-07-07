@@ -47,6 +47,8 @@ const hiddenStatuses = new Set(
 ); // الحالات المخفية من القائمة (مكتملة/جارية/لم تبدأ)
 const expandedIds = new Set();
 const openDetailsIds = new Set();
+const openNotesIds = new Set(); // المهام التي فُتحت لها لوحة الملاحظة القابلة للتعديل
+const openCommentsIds = new Set(); // المهام التي فُتح لها سجل التعليقات
 const openAddIds = new Set(); // المهام التي فُتح تحتها مربع "إضافة سريعة"
 let editingTaskId = null;
 let addingParentId = null;
@@ -502,7 +504,43 @@ function render() {
   topLevel.forEach((task) => list.appendChild(renderTaskCard(task, 0)));
 }
 
-/* ---- سجل الملاحظات/التعليقات لكل مهمة (بديل الملاحظة الوحيدة القابلة للمسح)، مع إمكانية إرفاق صورة/ملف ---- */
+/* ---- لوحة الملاحظة القابلة للتعديل لكل مهمة (خانة مستقلة عن سجل التعليقات) ---- */
+function renderNotesSection(task) {
+  const wrap = document.createElement("div");
+  wrap.className = "notes-wrap";
+
+  const textarea = document.createElement("textarea");
+  textarea.className = "task-notes-input";
+  textarea.rows = 3;
+  textarea.maxLength = 2000;
+  textarea.placeholder = g("اكتبي ملاحظة قابلة للتعديل...", "اكتب ملاحظة قابلة للتعديل...");
+  textarea.value = task.notes || "";
+  attachDigitSanitizer(textarea);
+  wrap.appendChild(textarea);
+
+  const actionsRow = document.createElement("div");
+  actionsRow.className = "notes-actions";
+
+  const saveBtn = document.createElement("button");
+  saveBtn.type = "button";
+  saveBtn.className = "btn btn-primary btn-sm";
+  saveBtn.textContent = "حفظ الملاحظة";
+  saveBtn.addEventListener("click", async () => {
+    saveBtn.disabled = true;
+    try {
+      await updateTask(task.id, { notes: convertArabicDigits(textarea.value.trim()) || null });
+    } catch (err) {
+      alert(g("تعذّر حفظ الملاحظة، حاولي مرة أخرى", "تعذّر حفظ الملاحظة، حاول مرة أخرى"));
+    }
+    saveBtn.disabled = false;
+  });
+  actionsRow.appendChild(saveBtn);
+  wrap.appendChild(actionsRow);
+
+  return wrap;
+}
+
+/* ---- سجل التعليقات لكل مهمة، مستقل عن الملاحظة القابلة للتعديل ---- */
 function renderCommentsSection(task) {
   const wrap = document.createElement("div");
   wrap.className = "comments-wrap";
@@ -514,27 +552,10 @@ function renderCommentsSection(task) {
   const feed = document.createElement("div");
   feed.className = "comments-feed";
 
-  if (task.notes && taskComments.length === 0) {
-    const legacy = document.createElement("div");
-    legacy.className = "comment-item comment-legacy";
-    const head = document.createElement("div");
-    head.className = "comment-head";
-    const author = document.createElement("span");
-    author.className = "comment-author";
-    author.textContent = "📌 ملاحظة سابقة";
-    head.appendChild(author);
-    legacy.appendChild(head);
-    const text = document.createElement("div");
-    text.className = "comment-text";
-    text.textContent = task.notes;
-    legacy.appendChild(text);
-    feed.appendChild(legacy);
-  }
-
-  if (taskComments.length === 0 && !task.notes) {
+  if (taskComments.length === 0) {
     const empty = document.createElement("div");
     empty.className = "comments-empty";
-    empty.textContent = g("لا توجد ملاحظات بعد — اكتبي أول ملاحظة", "لا توجد ملاحظات بعد — اكتب أول ملاحظة");
+    empty.textContent = g("لا توجد تعليقات بعد — اكتبي أول تعليق", "لا توجد تعليقات بعد — اكتب أول تعليق");
     feed.appendChild(empty);
   }
 
@@ -647,11 +668,25 @@ function renderTaskCard(task, level) {
   const children = getChildren(task.id);
   const isExpanded = expandedIds.has(task.id);
   const detailsOpen = openDetailsIds.has(task.id);
+  const notesOpen = openNotesIds.has(task.id);
+  const commentsOpen = openCommentsIds.has(task.id);
   const progress = computeProgress(task.id);
 
   const toggleDetails = () => {
     if (openDetailsIds.has(task.id)) openDetailsIds.delete(task.id);
     else openDetailsIds.add(task.id);
+    render();
+  };
+
+  const toggleNotes = () => {
+    if (openNotesIds.has(task.id)) openNotesIds.delete(task.id);
+    else openNotesIds.add(task.id);
+    render();
+  };
+
+  const toggleComments = () => {
+    if (openCommentsIds.has(task.id)) openCommentsIds.delete(task.id);
+    else openCommentsIds.add(task.id);
     render();
   };
 
@@ -766,6 +801,23 @@ function renderTaskCard(task, level) {
     row.appendChild(addBtn);
   }
 
+  const notesBtn = document.createElement("button");
+  notesBtn.type = "button";
+  notesBtn.className = `row-icon-toggle${notesOpen ? " active" : ""}${task.notes ? " has-content" : ""}`;
+  notesBtn.title = "الملاحظة";
+  notesBtn.textContent = "📝";
+  notesBtn.addEventListener("click", toggleNotes);
+  row.appendChild(notesBtn);
+
+  const taskCommentsCount = comments.filter((c) => c.task_id === task.id).length;
+  const commentsBtn = document.createElement("button");
+  commentsBtn.type = "button";
+  commentsBtn.className = `row-icon-toggle${commentsOpen ? " active" : ""}${taskCommentsCount > 0 ? " has-content" : ""}`;
+  commentsBtn.title = "التعليقات";
+  commentsBtn.textContent = "💬";
+  commentsBtn.addEventListener("click", toggleComments);
+  row.appendChild(commentsBtn);
+
   const moreBtn = document.createElement("button");
   moreBtn.type = "button";
   moreBtn.className = `more-toggle${detailsOpen ? " active" : ""}`;
@@ -776,12 +828,26 @@ function renderTaskCard(task, level) {
 
   card.appendChild(row);
 
-  /* ---- لوحة التفاصيل: تظهر فقط عند الحاجة (ملاحظات، ربط، إجراءات) ---- */
+  /* ---- لوحة الملاحظة القابلة للتعديل: تظهر عند فتحها من زر 📝 على الصف مباشرة ---- */
+  if (notesOpen) {
+    const notesPanel = document.createElement("div");
+    notesPanel.className = "task-details task-notes-panel";
+    notesPanel.appendChild(renderNotesSection(task));
+    card.appendChild(notesPanel);
+  }
+
+  /* ---- سجل التعليقات: يظهر عند فتحه من زر 💬 على الصف مباشرة ---- */
+  if (commentsOpen) {
+    const commentsPanel = document.createElement("div");
+    commentsPanel.className = "task-details task-comments-panel";
+    commentsPanel.appendChild(renderCommentsSection(task));
+    card.appendChild(commentsPanel);
+  }
+
+  /* ---- لوحة التفاصيل: تظهر فقط عند الحاجة (ربط، إجراءات) ---- */
   if (detailsOpen) {
     const details = document.createElement("div");
     details.className = "task-details";
-
-    details.appendChild(renderCommentsSection(task));
 
     const linked = links.filter((l) => l.source_task_id === task.id);
     if (linked.length > 0) {
