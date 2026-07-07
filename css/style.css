@@ -612,40 +612,20 @@ body {
   padding: 7px 14px;
 }
 .comment-composer-row input[type="text"]:focus { outline: none; border-color: var(--accent); }
-.comment-attach-btn, .comment-send-btn {
+.comment-send-btn {
   flex-shrink: 0;
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--card-bg);
+  border: 1px solid var(--accent);
+  background: var(--accent);
   cursor: pointer;
   font-size: 14px;
-  color: var(--text-muted);
-  transition: border-color 0.15s ease, color 0.15s ease;
+  color: #fff;
+  transition: opacity 0.15s ease;
 }
-.comment-attach-btn:hover, .comment-send-btn:hover { border-color: var(--accent); color: var(--accent); }
-.comment-send-btn { background: var(--accent); border-color: var(--accent); color: #fff; }
-.comment-send-btn:hover { color: #fff; opacity: 0.9; }
-.comment-attach-btn:disabled, .comment-send-btn:disabled { opacity: 0.5; cursor: default; }
-.comment-file-preview {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  background: var(--accent-bg);
-  color: var(--accent);
-  border-radius: 20px;
-  padding: 4px 12px;
-  width: fit-content;
-}
-.comment-file-preview button {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 12px;
-}
+.comment-send-btn:hover { opacity: 0.9; }
+.comment-send-btn:disabled { opacity: 0.5; cursor: default; }
 
 .task-tags {
   display: flex;

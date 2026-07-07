@@ -11,12 +11,6 @@ import {
   onSnapshot,
   writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
-import {
-  getStorage,
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-storage.js";
 
 const cfg = window.FIREBASE_CONFIG || {};
 if (!cfg.apiKey || cfg.apiKey.includes("YOUR_FIREBASE")) {
@@ -30,7 +24,6 @@ if (!cfg.apiKey || cfg.apiKey.includes("YOUR_FIREBASE")) {
 
 const app = initializeApp(cfg);
 const db = getFirestore(app);
-const storage = getStorage(app);
 const tasksCol = collection(db, "tasks");
 const linksCol = collection(db, "task_links");
 const commentsCol = collection(db, "task_comments");
@@ -605,52 +598,11 @@ function renderCommentsSection(task) {
 
   wrap.appendChild(feed);
 
-  let pendingFile = null;
   const composer = document.createElement("form");
   composer.className = "comment-composer";
 
-  const filePreview = document.createElement("div");
-  filePreview.className = "comment-file-preview hidden";
-
   const composerRow = document.createElement("div");
   composerRow.className = "comment-composer-row";
-
-  const fileInput = document.createElement("input");
-  fileInput.type = "file";
-  fileInput.className = "hidden";
-  fileInput.accept = "image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt";
-
-  const attachBtn = document.createElement("button");
-  attachBtn.type = "button";
-  attachBtn.className = "comment-attach-btn";
-  attachBtn.title = g("إرفاق صورة أو ملف", "إرفاق صورة أو ملف");
-  attachBtn.textContent = "📎";
-  attachBtn.addEventListener("click", () => fileInput.click());
-
-  fileInput.addEventListener("change", () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-    if (file.size > 8 * 1024 * 1024) {
-      alert("حجم الملف كبير جدًا (الحد الأقصى 8 ميجابايت)");
-      fileInput.value = "";
-      return;
-    }
-    pendingFile = file;
-    filePreview.innerHTML = "";
-    const nameSpan = document.createElement("span");
-    nameSpan.textContent = `📎 ${file.name}`;
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.textContent = "✕";
-    removeBtn.addEventListener("click", () => {
-      pendingFile = null;
-      fileInput.value = "";
-      filePreview.classList.add("hidden");
-    });
-    filePreview.appendChild(nameSpan);
-    filePreview.appendChild(removeBtn);
-    filePreview.classList.remove("hidden");
-  });
 
   const commentInput = document.createElement("input");
   commentInput.type = "text";
@@ -664,31 +616,22 @@ function renderCommentsSection(task) {
   sendBtn.title = "إرسال";
   sendBtn.textContent = "➤";
 
-  composerRow.appendChild(attachBtn);
   composerRow.appendChild(commentInput);
   composerRow.appendChild(sendBtn);
-  composer.appendChild(filePreview);
   composer.appendChild(composerRow);
-  composer.appendChild(fileInput);
 
   composer.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = convertArabicDigits(commentInput.value.trim());
-    const file = pendingFile;
-    if (!text && !file) return;
+    if (!text) return;
     sendBtn.disabled = true;
-    attachBtn.disabled = true;
     try {
-      await addComment(task.id, text, file);
+      await addComment(task.id, text);
       commentInput.value = "";
-      pendingFile = null;
-      fileInput.value = "";
-      filePreview.classList.add("hidden");
     } catch (err) {
       alert(g("تعذّر إرسال الملاحظة، حاولي مرة أخرى", "تعذّر إرسال الملاحظة، حاول مرة أخرى"));
     }
     sendBtn.disabled = false;
-    attachBtn.disabled = false;
     commentInput.focus();
   });
 
@@ -1085,27 +1028,14 @@ async function emptyTrash() {
   await batch.commit();
 }
 
-async function addComment(taskId, text, file) {
-  let attachmentUrl = null;
-  let attachmentName = null;
-  let attachmentType = null;
-
-  if (file) {
-    const path = `attachments/${taskId}/${Date.now()}_${file.name}`;
-    const fileRef = storageRef(storage, path);
-    await uploadBytes(fileRef, file);
-    attachmentUrl = await getDownloadURL(fileRef);
-    attachmentName = file.name;
-    attachmentType = file.type || null;
-  }
-
+async function addComment(taskId, text) {
   await addDoc(commentsCol, {
     task_id: taskId,
     author: currentUser,
     text: text || "",
-    attachment_url: attachmentUrl,
-    attachment_name: attachmentName,
-    attachment_type: attachmentType,
+    attachment_url: null,
+    attachment_name: null,
+    attachment_type: null,
     created_at: new Date().toISOString(),
   });
 }
