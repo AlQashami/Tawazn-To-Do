@@ -37,6 +37,10 @@ let currentUser = null;
 let dateFilter = "all";
 let assigneeFilter = "all";
 const tagFilters = new Set(); // فلتر الوسوم: تحديد متعدد (فاضي = عرض الكل)
+const STATUS_FILTER_KEY = "tawazon_hidden_statuses";
+const hiddenStatuses = new Set(
+  JSON.parse(localStorage.getItem(STATUS_FILTER_KEY) || "[]")
+); // الحالات المخفية من القائمة (مكتملة/جارية/لم تبدأ)
 const expandedIds = new Set();
 const openDetailsIds = new Set();
 const openAddIds = new Set(); // المهام التي فُتح تحتها مربع "إضافة سريعة"
@@ -220,6 +224,7 @@ function computeProgress(taskId) {
 function matchesFilter(task) {
   if (assigneeFilter !== "all" && task.assignee !== assigneeFilter) return false;
   if (tagFilters.size > 0 && !(task.tags || []).some((t) => tagFilters.has(t))) return false;
+  if (hiddenStatuses.has(task.status)) return false;
 
   if (dateFilter === "all") return true;
   if (!task.due_date) return false;
@@ -302,14 +307,72 @@ function renderTagFilterOptions() {
   });
 }
 
+function saveHiddenStatuses() {
+  localStorage.setItem(STATUS_FILTER_KEY, JSON.stringify([...hiddenStatuses]));
+}
+
+function renderStatusFilterOptions() {
+  const btn = document.getElementById("status-filter-btn");
+  const panel = document.getElementById("status-filter-panel");
+
+  btn.textContent = hiddenStatuses.size === 0 ? "كل الحالات" : `مخفي (${hiddenStatuses.size})`;
+  btn.classList.toggle("active", hiddenStatuses.size > 0);
+
+  panel.innerHTML = "";
+
+  const clearRow = document.createElement("button");
+  clearRow.type = "button";
+  clearRow.className = "tag-filter-clear";
+  clearRow.textContent = "إظهار كل الحالات";
+  clearRow.addEventListener("click", () => {
+    hiddenStatuses.clear();
+    saveHiddenStatuses();
+    render();
+  });
+  panel.appendChild(clearRow);
+
+  STATUS_ORDER.forEach((status) => {
+    const label = document.createElement("label");
+    label.className = "tag-filter-option";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = hiddenStatuses.has(status);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) hiddenStatuses.add(status);
+      else hiddenStatuses.delete(status);
+      saveHiddenStatuses();
+      render();
+    });
+    const dot = document.createElement("span");
+    dot.className = "tag-filter-dot";
+    dot.style.background = `var(--color-${STATUS_KEY[status]})`;
+    const text = document.createElement("span");
+    text.textContent = `إخفاء «${status}»`;
+    label.appendChild(checkbox);
+    label.appendChild(dot);
+    label.appendChild(text);
+    panel.appendChild(label);
+  });
+}
+
 document.getElementById("tag-filter-btn").addEventListener("click", (e) => {
   e.stopPropagation();
+  document.getElementById("status-filter-panel").classList.add("hidden");
   document.getElementById("tag-filter-panel").classList.toggle("hidden");
 });
+document.getElementById("status-filter-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  document.getElementById("tag-filter-panel").classList.add("hidden");
+  document.getElementById("status-filter-panel").classList.toggle("hidden");
+});
 document.addEventListener("click", (e) => {
-  const dropdown = document.getElementById("tag-filter-dropdown");
-  if (!dropdown.contains(e.target)) {
+  const tagDropdown = document.getElementById("tag-filter-dropdown");
+  if (!tagDropdown.contains(e.target)) {
     document.getElementById("tag-filter-panel").classList.add("hidden");
+  }
+  const statusDropdown = document.getElementById("status-filter-dropdown");
+  if (!statusDropdown.contains(e.target)) {
+    document.getElementById("status-filter-panel").classList.add("hidden");
   }
 });
 
@@ -364,6 +427,7 @@ function renderUserBrief() {
 
 function render() {
   renderTagFilterOptions();
+  renderStatusFilterOptions();
   renderUserBrief();
 
   const list = document.getElementById("task-list");
