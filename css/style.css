@@ -218,6 +218,68 @@ body {
   color: var(--text);
 }
 
+/* فلتر الوسوم: قائمة تحديد متعدد بأسلوب SharePoint (خانات اختيار بدل قيمة واحدة) */
+.tag-filter-dropdown { position: relative; }
+.tag-filter-btn {
+  cursor: pointer;
+  font-size: 14px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tag-filter-btn.active {
+  border-color: var(--color-both);
+  color: var(--color-both);
+  font-weight: 700;
+}
+.tag-filter-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  inset-inline-end: 0;
+  min-width: 200px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-hover);
+  padding: 8px;
+  z-index: 20;
+}
+.tag-filter-empty { padding: 8px; font-size: 13px; color: var(--text-muted); text-align: center; }
+.tag-filter-clear {
+  display: block;
+  width: 100%;
+  text-align: start;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--color-munther);
+  font-family: 'ThmanyahSans', sans-serif;
+  font-size: 13px;
+  padding: 6px 4px 8px;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+.tag-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.tag-filter-option:hover { background: var(--border); }
+.tag-filter-option input { cursor: pointer; }
+.tag-filter-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 /* قائمة المهام */
 .task-list {
   padding: 8px 24px 100px;
@@ -350,6 +412,46 @@ body {
 .more-toggle:hover { background: var(--border); color: var(--text); }
 .more-toggle.active { background: var(--border); color: var(--text); }
 
+/* زر "+" لإضافة مهمة فرعية سريعة تحت المهمة مباشرة (مهمة رئيسية أو فرعية) */
+.add-child-toggle {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  background: none;
+  border: 1px dashed var(--border);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--text-muted);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.add-child-toggle:hover { border-color: var(--color-munther); color: var(--color-munther); }
+.add-child-toggle.active {
+  background: var(--color-munther);
+  border-color: var(--color-munther);
+  border-style: solid;
+  color: #fff;
+  transform: rotate(45deg);
+}
+
+/* مربع الإضافة السريعة: يظهر داخل قائمة الفرعيات، مثل "إضافة خطوة" بتطبيقات المهام */
+.quick-add-form { margin-top: 4px; }
+.quick-add-form input {
+  width: 100%;
+  font-family: 'ThmanyahSans', sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--border);
+  padding: 6px 4px;
+  transition: border-color 0.2s ease;
+}
+.quick-add-form input:focus { outline: none; border-color: var(--color-munther); }
+.quick-add-form input::placeholder { color: var(--text-muted); }
+.quick-add-form input:disabled { opacity: 0.5; }
+
 /* لوحة التفاصيل: تظهر فقط عند فتحها — تحوي الملاحظة والإجراءات بدل ازدحام الصف */
 .task-details {
   margin-top: 8px;
@@ -419,6 +521,7 @@ body {
 .tag-chip-removable button:hover { opacity: 1; }
 
 .tags-input-wrap {
+  position: relative;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
@@ -437,6 +540,37 @@ body {
   width: 100%;
 }
 #field-tag-input:focus { outline: none; }
+
+/* اقتراحات الوسوم أثناء الكتابة — لإعادة استخدام نفس الوسوم بدل تكرارها بصيغ مختلفة */
+.tag-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  inset-inline: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow-hover);
+  padding: 6px;
+  z-index: 30;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.tag-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: start;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-family: 'ThmanyahSans', sans-serif;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.tag-suggestion-item:hover { background: var(--border); }
 
 .last-edited {
   font-size: 11px;

@@ -47,9 +47,10 @@
         <option value="منذر">منذر</option>
         <option value="كلاهما">كلاهما</option>
       </select>
-      <select id="tag-filter" class="assignee-select">
-        <option value="all">كل الوسوم</option>
-      </select>
+      <div class="tag-filter-dropdown" id="tag-filter-dropdown">
+        <button type="button" class="assignee-select tag-filter-btn" id="tag-filter-btn">كل الوسوم</button>
+        <div class="tag-filter-panel hidden" id="tag-filter-panel"></div>
+      </div>
     </div>
   </div>
 
@@ -90,7 +91,8 @@
       <label>الوسوم (اختياري)</label>
       <div class="tags-input-wrap">
         <div class="tags-chip-list" id="field-tags-list"></div>
-        <input type="text" id="field-tag-input" placeholder="اكتبي وسمًا واضغطي Enter">
+        <input type="text" id="field-tag-input" placeholder="اكتبي وسمًا واضغطي Enter" autocomplete="off">
+        <div class="tag-suggestions hidden" id="tag-suggestions"></div>
       </div>
 
       <label>ربط بمهمة أخرى (اختياري)</label>

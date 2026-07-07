@@ -36,9 +36,10 @@ let links = [];         // كل task_links
 let currentUser = null;
 let dateFilter = "all";
 let assigneeFilter = "all";
-let tagFilter = "all";
+const tagFilters = new Set(); // فلتر الوسوم: تحديد متعدد (فاضي = عرض الكل)
 const expandedIds = new Set();
 const openDetailsIds = new Set();
+const openAddIds = new Set(); // المهام التي فُتح تحتها مربع "إضافة سريعة"
 let editingTaskId = null;
 let addingParentId = null;
 let currentTags = [];
@@ -203,7 +204,7 @@ function computeProgress(taskId) {
 
 function matchesFilter(task) {
   if (assigneeFilter !== "all" && task.assignee !== assigneeFilter) return false;
-  if (tagFilter !== "all" && !(task.tags || []).includes(tagFilter)) return false;
+  if (tagFilters.size > 0 && !(task.tags || []).some((t) => tagFilters.has(t))) return false;
 
   if (dateFilter === "all") return true;
   if (!task.due_date) return false;
@@ -222,22 +223,80 @@ function nodeMatchesOrHasMatchingDescendant(task) {
 
 /* ---------- الرسم ---------- */
 
-function renderTagFilterOptions() {
-  const select = document.getElementById("tag-filter");
+function allKnownTags() {
   const allTags = new Set();
   tasks.forEach((t) => (t.tags || []).forEach((tag) => allTags.add(tag)));
-
-  const previousValue = select.value;
-  select.innerHTML = `<option value="all">كل الوسوم</option>`;
-  [...allTags].sort().forEach((tag) => {
-    const opt = document.createElement("option");
-    opt.value = tag;
-    opt.textContent = tag;
-    select.appendChild(opt);
-  });
-  if (allTags.has(previousValue)) select.value = previousValue;
-  else tagFilter = "all";
+  return [...allTags].sort();
 }
+
+function renderTagFilterOptions() {
+  const btn = document.getElementById("tag-filter-btn");
+  const panel = document.getElementById("tag-filter-panel");
+  const tagsList = allKnownTags();
+
+  // إزالة أي وسم فُلتر عليه سابقًا لكنه لم يعد موجودًا على أي مهمة
+  [...tagFilters].forEach((t) => {
+    if (!tagsList.includes(t)) tagFilters.delete(t);
+  });
+
+  btn.textContent =
+    tagFilters.size === 0
+      ? "كل الوسوم"
+      : tagFilters.size === 1
+      ? [...tagFilters][0]
+      : `الوسوم (${tagFilters.size})`;
+  btn.classList.toggle("active", tagFilters.size > 0);
+
+  panel.innerHTML = "";
+
+  if (tagsList.length === 0) {
+    panel.innerHTML = `<div class="tag-filter-empty">لا توجد وسوم بعد</div>`;
+    return;
+  }
+
+  const clearRow = document.createElement("button");
+  clearRow.type = "button";
+  clearRow.className = "tag-filter-clear";
+  clearRow.textContent = "مسح التحديد";
+  clearRow.addEventListener("click", () => {
+    tagFilters.clear();
+    render();
+  });
+  panel.appendChild(clearRow);
+
+  tagsList.forEach((tag) => {
+    const label = document.createElement("label");
+    label.className = "tag-filter-option";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = tagFilters.has(tag);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) tagFilters.add(tag);
+      else tagFilters.delete(tag);
+      render();
+    });
+    const dot = document.createElement("span");
+    dot.className = "tag-filter-dot";
+    dot.style.background = tagColor(tag);
+    const text = document.createElement("span");
+    text.textContent = tag;
+    label.appendChild(checkbox);
+    label.appendChild(dot);
+    label.appendChild(text);
+    panel.appendChild(label);
+  });
+}
+
+document.getElementById("tag-filter-btn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  document.getElementById("tag-filter-panel").classList.toggle("hidden");
+});
+document.addEventListener("click", (e) => {
+  const dropdown = document.getElementById("tag-filter-dropdown");
+  if (!dropdown.contains(e.target)) {
+    document.getElementById("tag-filter-panel").classList.add("hidden");
+  }
+});
 
 function render() {
   renderTagFilterOptions();
@@ -354,6 +413,25 @@ function renderTaskCard(task, level) {
 
   row.appendChild(main);
 
+  if (level < MAX_LEVEL) {
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = `add-child-toggle${openAddIds.has(task.id) ? " active" : ""}`;
+    addBtn.title = "إضافة مهمة فرعية";
+    addBtn.textContent = "+";
+    addBtn.addEventListener("click", () => {
+      if (openAddIds.has(task.id)) {
+        openAddIds.delete(task.id);
+        if (children.length === 0) expandedIds.delete(task.id);
+      } else {
+        openAddIds.add(task.id);
+        expandedIds.add(task.id);
+      }
+      render();
+    });
+    row.appendChild(addBtn);
+  }
+
   const moreBtn = document.createElement("button");
   moreBtn.type = "button";
   moreBtn.className = `more-toggle${detailsOpen ? " active" : ""}`;
@@ -465,12 +543,36 @@ function renderTaskCard(task, level) {
     card.appendChild(details);
   }
 
-  if (children.length > 0 && isExpanded) {
+  const showAddBox = level < MAX_LEVEL && openAddIds.has(task.id);
+  if (isExpanded && (children.length > 0 || showAddBox)) {
     const childrenWrap = document.createElement("div");
     childrenWrap.className = "children-wrap";
     children
       .filter(nodeMatchesOrHasMatchingDescendant)
       .forEach((child) => childrenWrap.appendChild(renderTaskCard(child, level + 1)));
+
+    if (showAddBox) {
+      const addForm = document.createElement("form");
+      addForm.className = "quick-add-form";
+      const addInput = document.createElement("input");
+      addInput.type = "text";
+      addInput.maxLength = 200;
+      addInput.placeholder = level === 0 ? "أضف مهمة فرعية..." : "أضف مهمة فرعية للفرعية...";
+      attachDigitSanitizer(addInput);
+      addForm.appendChild(addInput);
+      addForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const value = convertArabicDigits(addInput.value.trim());
+        if (!value) return;
+        addInput.disabled = true;
+        await quickAddSubtask(task.id, value);
+        addInput.value = "";
+        addInput.disabled = false;
+        addInput.focus();
+      });
+      childrenWrap.appendChild(addForm);
+    }
+
     card.appendChild(childrenWrap);
   }
 
@@ -521,6 +623,23 @@ function toggleLinkPicker(taskId, container) {
 }
 
 /* ---------- عمليات قاعدة البيانات ---------- */
+
+async function quickAddSubtask(parentId, title) {
+  const siblings = getChildren(parentId);
+  const maxOrder = siblings.reduce((max, t) => Math.max(max, t.sort_order), -1);
+  await addDoc(tasksCol, {
+    title,
+    assignee: currentUser,
+    due_date: null,
+    status: "لم تبدأ",
+    notes: null,
+    tags: [],
+    parent_id: parentId,
+    sort_order: maxOrder + 1,
+    last_edited_by: currentUser,
+    last_edited_at: new Date().toISOString(),
+  });
+}
 
 async function updateTask(id, fields) {
   const payload = {
@@ -582,6 +701,7 @@ const fieldNotes = document.getElementById("field-notes");
 const fieldLinkSelect = document.getElementById("field-link-select");
 const fieldTagInput = document.getElementById("field-tag-input");
 const fieldTagsList = document.getElementById("field-tags-list");
+const tagSuggestionsBox = document.getElementById("tag-suggestions");
 
 attachDigitSanitizer(fieldTitle);
 attachDigitSanitizer(fieldNotes);
@@ -605,15 +725,66 @@ function renderTagChips() {
   });
 }
 
-fieldTagInput.addEventListener("keydown", (e) => {
-  if (e.key !== "Enter") return;
-  e.preventDefault();
-  const value = convertArabicDigits(fieldTagInput.value.trim());
-  if (value && !currentTags.includes(value)) {
-    currentTags.push(value);
+function addTagFromInput(value) {
+  const clean = convertArabicDigits(value.trim());
+  if (clean && !currentTags.includes(clean)) {
+    currentTags.push(clean);
     renderTagChips();
   }
   fieldTagInput.value = "";
+  hideTagSuggestions();
+}
+
+function hideTagSuggestions() {
+  tagSuggestionsBox.classList.add("hidden");
+  tagSuggestionsBox.innerHTML = "";
+}
+
+function renderTagSuggestions() {
+  const query = convertArabicDigits(fieldTagInput.value.trim());
+  const matches = allKnownTags().filter(
+    (tag) => !currentTags.includes(tag) && (query === "" || tag.includes(query))
+  );
+
+  if (matches.length === 0) {
+    hideTagSuggestions();
+    return;
+  }
+
+  tagSuggestionsBox.innerHTML = "";
+  matches.slice(0, 8).forEach((tag) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "tag-suggestion-item";
+    const dot = document.createElement("span");
+    dot.className = "tag-filter-dot";
+    dot.style.background = tagColor(tag);
+    const text = document.createElement("span");
+    text.textContent = tag;
+    item.appendChild(dot);
+    item.appendChild(text);
+    item.addEventListener("mousedown", (e) => {
+      e.preventDefault(); // يمنع إغلاق القائمة قبل تسجيل الاختيار
+      addTagFromInput(tag);
+      fieldTagInput.focus();
+    });
+    tagSuggestionsBox.appendChild(item);
+  });
+  tagSuggestionsBox.classList.remove("hidden");
+}
+
+fieldTagInput.addEventListener("focus", renderTagSuggestions);
+fieldTagInput.addEventListener("input", renderTagSuggestions);
+fieldTagInput.addEventListener("blur", () => setTimeout(hideTagSuggestions, 150));
+
+fieldTagInput.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    hideTagSuggestions();
+    return;
+  }
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  addTagFromInput(fieldTagInput.value);
 });
 
 function openTaskModal({ task = null, parentId = null }) {
@@ -696,11 +867,6 @@ document.querySelectorAll(".filter-btn").forEach((btn) => {
 
 document.getElementById("assignee-filter").addEventListener("change", (e) => {
   assigneeFilter = e.target.value;
-  render();
-});
-
-document.getElementById("tag-filter").addEventListener("change", (e) => {
-  tagFilter = e.target.value;
   render();
 });
 
