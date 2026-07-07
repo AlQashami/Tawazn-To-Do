@@ -1,0 +1,344 @@
+@font-face {
+  font-family: 'ThmanyahSans';
+  src: url('../assets/fonts/thmanyahsans-Light.woff2') format('woff2');
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ThmanyahSans';
+  src: url('../assets/fonts/thmanyahsans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ThmanyahSans';
+  src: url('../assets/fonts/thmanyahsans-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ThmanyahSans';
+  src: url('../assets/fonts/thmanyahsans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'ThmanyahSans';
+  src: url('../assets/fonts/thmanyahsans-Black.woff2') format('woff2');
+  font-weight: 900;
+  font-display: swap;
+}
+
+:root {
+  --color-aseel: #c2185b;
+  --color-aseel-bg: #fce4ec;
+  --color-munther: #1565c0;
+  --color-munther-bg: #e3f2fd;
+  --color-both: #6a1b9a;
+  --color-both-bg: #f3e5f5;
+  --bg: #faf9f7;
+  --card-bg: #ffffff;
+  --text: #2b2b2b;
+  --text-muted: #8a8a8a;
+  --border: #e6e2dc;
+  --radius: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'ThmanyahSans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  direction: rtl;
+}
+
+.hidden { display: none !important; }
+
+/* عناصر عامة */
+.btn {
+  font-family: 'ThmanyahSans', sans-serif;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-primary { background: var(--color-munther); color: #fff; }
+.btn-secondary { background: #eee; color: #333; }
+.btn-icon {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: var(--text);
+  padding: 4px 8px;
+}
+
+/* شاشة اختيار الاسم */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.name-picker-box, .modal-box {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 32px;
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.name-picker-box h1 { margin-top: 0; }
+.name-picker-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 20px;
+}
+.btn-aseel { background: var(--color-aseel); color: #fff; }
+.btn-munther { background: var(--color-munther); color: #fff; }
+
+/* الهيدر */
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+}
+.header-right, .header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo { margin: 0; font-size: 22px; font-weight: 900; }
+.current-user {
+  font-size: 13px;
+  color: var(--text-muted);
+  background: #f0f0f0;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+.streak-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff3e0;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 700;
+}
+.streak-label { font-size: 13px; font-weight: 400; color: var(--text-muted); }
+
+/* الفلاتر */
+.filters-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 24px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.filter-group { display: flex; gap: 8px; flex-wrap: wrap; }
+.filter-btn {
+  font-family: 'ThmanyahSans', sans-serif;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.filter-btn.active { background: var(--color-munther); color: #fff; border-color: var(--color-munther); }
+.assignee-select {
+  font-family: 'ThmanyahSans', sans-serif;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  background: #fff;
+}
+
+/* قائمة المهام */
+.task-list {
+  padding: 8px 24px 100px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+.task-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  border-inline-start: 6px solid var(--border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.task-card.assignee-أسيل { border-inline-start-color: var(--color-aseel); }
+.task-card.assignee-منذر { border-inline-start-color: var(--color-munther); }
+.task-card.assignee-كلاهما { border-inline-start-color: var(--color-both); }
+.task-card.completed .task-title { text-decoration: line-through; color: var(--text-muted); }
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.expand-toggle {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  width: 22px;
+  flex-shrink: 0;
+}
+.task-status-select {
+  font-family: 'ThmanyahSans', sans-serif;
+  font-size: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  padding: 3px 6px;
+  background: #fff;
+  flex-shrink: 0;
+}
+.task-main { flex: 1; min-width: 0; }
+.task-title { font-weight: 700; font-size: 15px; }
+.task-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  flex-wrap: wrap;
+}
+.due-overdue { color: #c62828; font-weight: 700; }
+.task-actions { display: flex; gap: 4px; flex-shrink: 0; }
+
+.progress-bar-outer {
+  height: 6px;
+  background: #eee;
+  border-radius: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.progress-bar-inner {
+  height: 100%;
+  background: var(--color-munther);
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.task-notes {
+  font-size: 13px;
+  color: #555;
+  margin-top: 8px;
+  white-space: pre-wrap;
+}
+
+.last-edited {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.linked-tasks {
+  margin-top: 8px;
+  font-size: 12px;
+}
+.linked-tasks-title { color: var(--text-muted); margin-bottom: 4px; }
+.linked-task-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f2f2f2;
+  border-radius: 14px;
+  padding: 3px 10px;
+  margin: 2px 4px 2px 0;
+}
+.linked-task-chip button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #c62828;
+  font-size: 12px;
+  padding: 0;
+}
+
+.children-wrap {
+  margin-top: 10px;
+  padding-right: 20px;
+  border-right: 2px dashed var(--border);
+}
+
+.sort-buttons { display: flex; flex-direction: column; }
+.sort-buttons button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  padding: 2px;
+  color: var(--text-muted);
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--text-muted);
+  margin-top: 60px;
+  font-size: 15px;
+}
+
+/* زر الإضافة العائم */
+.fab {
+  position: fixed;
+  bottom: 28px;
+  left: 28px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-munther);
+  color: #fff;
+  font-size: 28px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* نافذة المهمة */
+.modal-box { text-align: right; }
+#task-form label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 14px;
+  margin-bottom: 4px;
+}
+#task-form input,
+#task-form select,
+#task-form textarea {
+  width: 100%;
+  font-family: 'ThmanyahSans', sans-serif;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+@media (max-width: 560px) {
+  .app-header, .filters-bar { padding-inline: 14px; }
+  .task-list { padding-inline: 14px; }
+}

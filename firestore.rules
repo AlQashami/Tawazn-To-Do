@@ -1,0 +1,15 @@
+// توازن: قواعد أمان Firestore
+// من Firebase Console → Firestore Database → Rules، الصقي هذا الكود كاملاً واضغطي Publish.
+// لا يوجد تسجيل دخول في التطبيق، لذا القراءة والكتابة مفتوحة لأي شخص يملك رابط المشروع.
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /tasks/{taskId} {
+      allow read, write: if true;
+    }
+    match /task_links/{linkId} {
+      allow read, write: if true;
+    }
+  }
+}
