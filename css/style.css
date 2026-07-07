@@ -240,6 +240,36 @@ body {
 .task-card.completed { opacity: 0.75; }
 .task-card.completed .task-title { text-decoration: line-through; color: var(--text-muted); }
 
+/* المهام الفرعية وفرعية الفرعية: صفوف مسطّحة داخل بطاقة المهمة الرئيسية، بدون صناديق متداخلة */
+.task-card.level-1,
+.task-card.level-2 {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  border-inline-start: none;
+  padding: 0;
+  margin-bottom: 0;
+}
+.task-card.level-1:hover,
+.task-card.level-2:hover { box-shadow: none; }
+.task-card.level-1 > .task-row,
+.task-card.level-2 > .task-row {
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--border);
+  border-inline-start: 3px solid var(--border);
+  padding-inline-start: 10px;
+  border-radius: 0;
+}
+.task-card.level-1.assignee-أسيل > .task-row,
+.task-card.level-2.assignee-أسيل > .task-row { border-inline-start-color: var(--color-aseel); }
+.task-card.level-1.assignee-منذر > .task-row,
+.task-card.level-2.assignee-منذر > .task-row { border-inline-start-color: var(--color-munther); }
+.task-card.level-1.assignee-كلاهما > .task-row,
+.task-card.level-2.assignee-كلاهما > .task-row { border-inline-start-color: var(--color-both); }
+.task-card.level-1 .task-title,
+.task-card.level-2 .task-title { font-size: 14px; font-weight: 600; }
+.task-card.level-2 > .task-row { background: var(--bg-soft, transparent); }
+
 .task-row {
   display: flex;
   align-items: center;
@@ -312,12 +342,29 @@ body {
   transition: width 0.3s;
 }
 
-.task-notes {
+.task-notes-input {
+  display: block;
+  width: 100%;
+  font-family: inherit;
   font-size: 13px;
   color: var(--text-muted);
+  background: var(--input-bg, transparent);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
   margin-top: 8px;
-  white-space: pre-wrap;
+  resize: vertical;
+  min-height: 34px;
+  transition: border-color 0.2s ease, color 0.2s ease;
 }
+.task-notes-input:hover { border-color: var(--text-muted); }
+.task-notes-input:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--accent, var(--color-doing));
+  color: var(--text);
+}
+.task-notes-input::placeholder { color: var(--text-muted); opacity: 0.6; }
 
 .task-tags {
   display: flex;
@@ -398,9 +445,13 @@ body {
 }
 
 .children-wrap {
-  margin-top: 10px;
-  padding-right: 20px;
-  border-right: 2px dashed var(--border);
+  margin-top: 6px;
+  padding-right: 22px;
+}
+.task-card.level-0 > .children-wrap {
+  margin-top: 4px;
+  padding-top: 2px;
+  border-top: 1px solid var(--border);
 }
 
 .sort-buttons { display: flex; flex-direction: column; }
@@ -506,4 +557,6 @@ body {
   .fab { width: 52px; height: 52px; font-size: 26px; bottom: 20px; left: 20px; }
 
   .children-wrap { padding-right: 12px; }
+  .task-card.level-1 > .task-row,
+  .task-card.level-2 > .task-row { flex-wrap: wrap; row-gap: 6px; padding-inline-start: 8px; }
 }

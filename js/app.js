@@ -256,7 +256,7 @@ function render() {
 
 function renderTaskCard(task, level) {
   const card = document.createElement("div");
-  card.className = `task-card assignee-${task.assignee}${task.status === "مكتملة" ? " completed" : ""}`;
+  card.className = `task-card level-${level} assignee-${task.assignee}${task.status === "مكتملة" ? " completed" : ""}`;
   if (!matchesFilter(task)) card.style.opacity = "0.5";
 
   const children = getChildren(task.id);
@@ -330,12 +330,18 @@ function renderTaskCard(task, level) {
     main.appendChild(tagsWrap);
   }
 
-  if (task.notes) {
-    const notes = document.createElement("div");
-    notes.className = "task-notes";
-    notes.textContent = task.notes;
-    main.appendChild(notes);
-  }
+  const notesArea = document.createElement("textarea");
+  notesArea.className = "task-notes-input";
+  notesArea.placeholder = "أضف ملاحظة هنا...";
+  notesArea.rows = 1;
+  notesArea.value = task.notes || "";
+  attachDigitSanitizer(notesArea);
+  notesArea.addEventListener("change", () => {
+    const val = notesArea.value.trim();
+    if (val !== (task.notes || "")) updateTask(task.id, { notes: val || null });
+  });
+  notesArea.addEventListener("click", (e) => e.stopPropagation());
+  main.appendChild(notesArea);
 
   const linked = links.filter((l) => l.source_task_id === task.id);
   if (linked.length > 0) {
