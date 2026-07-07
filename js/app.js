@@ -125,6 +125,17 @@ function addDays(dateStr, days) {
   return formatISO(d);
 }
 
+/* ---------- صيغة المخاطب حسب الشخص (أسيل: مؤنث، منذر: مذكر) ---------- */
+
+function isMale() {
+  return currentUser === "منذر";
+}
+
+// g(نص مؤنث لأسيل, نص مذكر لمنذر)
+function g(female, male) {
+  return isMale() ? male : female;
+}
+
 /* ---------- تحميل المستخدم ---------- */
 
 function initUser() {
@@ -148,13 +159,17 @@ document.querySelectorAll("#name-picker [data-name]").forEach((btn) => {
 
 document.getElementById("switch-user-btn").addEventListener("click", () => {
   localStorage.removeItem(STORAGE_KEY);
+  document.documentElement.removeAttribute("data-user");
   document.getElementById("app").classList.add("hidden");
   document.getElementById("name-picker").classList.remove("hidden");
 });
 
 function startApp() {
+  document.documentElement.setAttribute("data-user", currentUser);
   document.getElementById("app").classList.remove("hidden");
-  document.getElementById("current-user-label").textContent = `أنت: ${currentUser}`;
+  document.getElementById("current-user-label").textContent = `${g("أنتِ", "أنت")}: ${currentUser}`;
+  const tagInputEl = document.getElementById("field-tag-input");
+  if (tagInputEl) tagInputEl.placeholder = g("اكتبي وسمًا واضغطي Enter", "اكتب وسمًا واضغط Enter");
   subscribeRealtime();
 }
 
@@ -298,8 +313,58 @@ document.addEventListener("click", (e) => {
   }
 });
 
+function renderUserBrief() {
+  const brief = document.getElementById("user-brief");
+  if (!brief || !currentUser) return;
+
+  const today = todayStr();
+  const mine = tasks.filter(
+    (t) => (t.assignee === currentUser || t.assignee === "كلاهما") && t.status !== "مكتملة"
+  );
+  const overdueCount = mine.filter((t) => t.due_date && t.due_date < today).length;
+  const todayCount = mine.filter((t) => t.due_date === today).length;
+
+  brief.innerHTML = "";
+
+  const greeting = document.createElement("span");
+  greeting.className = "user-brief-greeting";
+  greeting.textContent = `أهلًا ${currentUser} 👋`;
+  brief.appendChild(greeting);
+
+  const goToFilter = (filterName) => {
+    const btn = document.querySelector(`.filter-btn[data-filter="${filterName}"]`);
+    if (btn) btn.click();
+  };
+
+  if (overdueCount > 0) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "user-brief-chip overdue";
+    chip.textContent = `${overdueCount} متأخرة عليك`;
+    chip.addEventListener("click", () => goToFilter("overdue"));
+    brief.appendChild(chip);
+  }
+
+  if (todayCount > 0) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "user-brief-chip today";
+    chip.textContent = `${todayCount} مستحقة اليوم`;
+    chip.addEventListener("click", () => goToFilter("today"));
+    brief.appendChild(chip);
+  }
+
+  if (overdueCount === 0 && todayCount === 0) {
+    const chip = document.createElement("span");
+    chip.className = "user-brief-chip ok";
+    chip.textContent = "لا شيء عاجل عليك 🎉";
+    brief.appendChild(chip);
+  }
+}
+
 function render() {
   renderTagFilterOptions();
+  renderUserBrief();
 
   const list = document.getElementById("task-list");
   list.innerHTML = "";
@@ -307,7 +372,7 @@ function render() {
   const topLevel = getChildren(null).filter(nodeMatchesOrHasMatchingDescendant);
 
   if (topLevel.length === 0) {
-    list.innerHTML = `<div class="empty-state">لا توجد مهام بعد — اضغطي على زر "+" لإضافة أول مهمة</div>`;
+    list.innerHTML = `<div class="empty-state">لا توجد مهام بعد — ${g("اضغطي", "اضغط")} على زر "+" لإضافة أول مهمة</div>`;
     return;
   }
 
@@ -354,7 +419,7 @@ function renderTaskCard(task, level) {
   const statusBtn = document.createElement("button");
   statusBtn.type = "button";
   statusBtn.className = `status-toggle status-${STATUS_KEY[task.status] || "todo"}`;
-  statusBtn.title = `الحالة: ${task.status} (اضغطي للتغيير)`;
+  statusBtn.title = `الحالة: ${task.status} (${g("اضغطي", "اضغط")} للتغيير)`;
   statusBtn.addEventListener("click", () => {
     const next = STATUS_ORDER[(STATUS_ORDER.indexOf(task.status) + 1) % STATUS_ORDER.length];
     updateTask(task.id, { status: next });
@@ -449,7 +514,7 @@ function renderTaskCard(task, level) {
 
     const notesArea = document.createElement("textarea");
     notesArea.className = "task-notes-input";
-    notesArea.placeholder = "أضف ملاحظة هنا...";
+    notesArea.placeholder = g("أضيفي ملاحظة هنا...", "أضف ملاحظة هنا...");
     notesArea.rows = 2;
     notesArea.value = task.notes || "";
     attachDigitSanitizer(notesArea);
@@ -557,7 +622,10 @@ function renderTaskCard(task, level) {
       const addInput = document.createElement("input");
       addInput.type = "text";
       addInput.maxLength = 200;
-      addInput.placeholder = level === 0 ? "أضف مهمة فرعية..." : "أضف مهمة فرعية للفرعية...";
+      addInput.placeholder =
+        level === 0
+          ? g("أضيفي مهمة فرعية...", "أضف مهمة فرعية...")
+          : g("أضيفي مهمة فرعية للفرعية...", "أضف مهمة فرعية للفرعية...");
       attachDigitSanitizer(addInput);
       addForm.appendChild(addInput);
       addForm.addEventListener("submit", async (e) => {
@@ -651,7 +719,7 @@ async function updateTask(id, fields) {
 }
 
 async function deleteTask(id) {
-  if (!confirm("هل تريدين حذف هذه المهمة وكل ما يتبعها؟")) return;
+  if (!confirm(g("هل تريدين حذف هذه المهمة وكل ما يتبعها؟", "هل تريد حذف هذه المهمة وكل ما يتبعها؟"))) return;
 
   const idsToDelete = [id, ...getDescendants(id).map((t) => t.id)];
   const idSet = new Set(idsToDelete);
@@ -705,6 +773,7 @@ const tagSuggestionsBox = document.getElementById("tag-suggestions");
 
 attachDigitSanitizer(fieldTitle);
 attachDigitSanitizer(fieldNotes);
+attachDigitSanitizer(fieldTagInput);
 
 function renderTagChips() {
   fieldTagsList.innerHTML = "";
