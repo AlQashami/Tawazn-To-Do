@@ -11,6 +11,11 @@ import {
   onSnapshot,
   writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  onAuthStateChanged,
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 
 const cfg = window.FIREBASE_CONFIG || {};
 if (!cfg.apiKey || cfg.apiKey.includes("YOUR_FIREBASE")) {
@@ -24,9 +29,13 @@ if (!cfg.apiKey || cfg.apiKey.includes("YOUR_FIREBASE")) {
 
 const app = initializeApp(cfg);
 const db = getFirestore(app);
+const auth = getAuth(app);
 const tasksCol = collection(db, "tasks");
 const linksCol = collection(db, "task_links");
 const commentsCol = collection(db, "task_comments");
+
+// الحساب المشترك (كلمة سر واحدة للاثنين) — لازم يتطابق مع مستخدم أنشأتيه بنفس الإيميل في Firebase Console → Authentication
+const AUTH_EMAIL = "tawazon-app@internal.local";
 
 const STORAGE_KEY = "tawazon_user";
 const MAX_LEVEL = 2; // مستويات: 0 رئيسية، 1 فرعية، 2 فرعية الفرعية
@@ -1479,6 +1488,36 @@ document.getElementById("close-balance-btn").addEventListener("click", () => {
   document.getElementById("balance-modal").classList.add("hidden");
 });
 
-/* ---------- بدء التشغيل ---------- */
+/* ---------- بوابة كلمة السر المشتركة (تحمي البيانات من الوصول العام) ---------- */
 
-initUser();
+const authGateEl = document.getElementById("auth-gate");
+const authForm = document.getElementById("auth-form");
+const authPasswordInput = document.getElementById("auth-password");
+const authErrorEl = document.getElementById("auth-error");
+const authSubmitBtn = document.getElementById("auth-submit-btn");
+
+authForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const password = authPasswordInput.value;
+  if (!password) return;
+  authSubmitBtn.disabled = true;
+  authErrorEl.classList.add("hidden");
+  try {
+    await signInWithEmailAndPassword(auth, AUTH_EMAIL, password);
+    authPasswordInput.value = "";
+    // onAuthStateChanged سيتكفّل بإخفاء بوابة كلمة السر وبدء التطبيق
+  } catch (err) {
+    authErrorEl.classList.remove("hidden");
+    authSubmitBtn.disabled = false;
+  }
+});
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    authGateEl.classList.add("hidden");
+    initUser();
+  } else {
+    authGateEl.classList.remove("hidden");
+    authSubmitBtn.disabled = false;
+  }
+});

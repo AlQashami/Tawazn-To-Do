@@ -161,6 +161,20 @@ body {
   justify-content: center;
   margin-top: 20px;
 }
+#auth-form input {
+  width: 100%;
+  font-family: 'ThmanyahSans', sans-serif;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+  background: var(--card-bg);
+  color: var(--text);
+  text-align: center;
+  margin-top: 16px;
+}
+#auth-form input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.auth-error { color: #e0505a; font-size: 13px; margin-top: 10px; }
 .btn-aseel { background: linear-gradient(135deg, var(--color-aseel), #ff6f9c); color: #fff; }
 .btn-munther { background: linear-gradient(135deg, var(--color-munther), #42a5f5); color: #fff; }
 

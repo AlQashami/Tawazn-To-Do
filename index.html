@@ -8,6 +8,21 @@
 </head>
 <body>
 
+<!-- شاشة كلمة السر المشتركة (تظهر مرة واحدة لكل جهاز) -->
+<div id="auth-gate" class="overlay hidden">
+  <div class="name-picker-box">
+    <h1>توازن 🔒</h1>
+    <p>أدخلي كلمة السر للدخول</p>
+    <form id="auth-form">
+      <input type="password" id="auth-password" placeholder="كلمة السر" autocomplete="current-password" required>
+      <p id="auth-error" class="auth-error hidden">كلمة السر غير صحيحة</p>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-primary" id="auth-submit-btn">دخول</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- شاشة اختيار الاسم عند أول فتح -->
 <div id="name-picker" class="overlay hidden">
   <div class="name-picker-box">
