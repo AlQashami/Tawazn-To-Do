@@ -28,12 +28,18 @@
       <span class="current-user" id="current-user-label"></span>
     </div>
     <div class="header-left">
+      <button class="btn-icon" id="balance-btn" title="لوحة التوازن">⚖️</button>
+      <button class="btn-icon" id="trash-btn" title="سلة المهملات">🗑️</button>
       <button class="btn-icon" id="theme-toggle-btn" title="تبديل الوضع الداكن/الفاتح">🌙</button>
       <button class="btn-icon" id="switch-user-btn" title="تبديل المستخدم">⇄</button>
     </div>
   </header>
 
   <div class="user-brief" id="user-brief"></div>
+
+  <div class="search-bar">
+    <input type="search" id="search-input" class="search-input" placeholder="🔍 ابحث في المهام..." autocomplete="off">
+  </div>
 
   <div class="filters-bar">
     <div class="filter-group" id="date-filters">
@@ -91,6 +97,13 @@
         <option value="مكتملة">مكتملة</option>
       </select>
 
+      <label>الأولوية</label>
+      <select id="field-priority">
+        <option value="عادي">عادي</option>
+        <option value="مهم">مهم ⭐</option>
+        <option value="عاجل">عاجل 🔴</option>
+      </select>
+
       <label>ملاحظة (اختياري)</label>
       <textarea id="field-notes" maxlength="2000" rows="3"></textarea>
 
@@ -111,6 +124,29 @@
         <button type="submit" class="btn btn-primary">حفظ</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- سلة المهملات -->
+<div id="trash-modal" class="overlay hidden">
+  <div class="modal-box">
+    <h2>سلة المهملات</h2>
+    <div id="trash-list" class="trash-list"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" id="empty-trash-btn">إفراغ السلة نهائيًا</button>
+      <button type="button" class="btn btn-primary" id="close-trash-btn">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<!-- لوحة التوازن -->
+<div id="balance-modal" class="overlay hidden">
+  <div class="modal-box">
+    <h2>لوحة التوازن ⚖️</h2>
+    <div id="balance-content" class="balance-content"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-primary" id="close-balance-btn">إغلاق</button>
+    </div>
   </div>
 </div>
 

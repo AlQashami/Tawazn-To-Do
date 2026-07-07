@@ -11,6 +11,12 @@ import {
   onSnapshot,
   writeBatch,
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import {
+  getStorage,
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-storage.js";
 
 const cfg = window.FIREBASE_CONFIG || {};
 if (!cfg.apiKey || cfg.apiKey.includes("YOUR_FIREBASE")) {
@@ -24,8 +30,10 @@ if (!cfg.apiKey || cfg.apiKey.includes("YOUR_FIREBASE")) {
 
 const app = initializeApp(cfg);
 const db = getFirestore(app);
+const storage = getStorage(app);
 const tasksCol = collection(db, "tasks");
 const linksCol = collection(db, "task_links");
+const commentsCol = collection(db, "task_comments");
 
 const STORAGE_KEY = "tawazon_user";
 const MAX_LEVEL = 2; // مستويات: 0 رئيسية، 1 فرعية، 2 فرعية الفرعية
@@ -33,9 +41,12 @@ const MAX_LEVEL = 2; // مستويات: 0 رئيسية، 1 فرعية، 2 فرع
 let tasks = [];        // كل المهام (مسطّحة)
 let tasksById = {};     // فهرسة سريعة
 let links = [];         // كل task_links
+let comments = [];      // كل الملاحظات/التعليقات على المهام (task_comments)
 let currentUser = null;
+let sessionLastSeen = null; // آخر وقت دخول (لحساب "تحديثات جديدة منذ آخر زيارة")
 let dateFilter = "all";
 let assigneeFilter = "all";
+let searchQuery = ""; // نص البحث العام
 const tagFilters = new Set(); // فلتر الوسوم: تحديد متعدد (فاضي = عرض الكل)
 const STATUS_FILTER_KEY = "tawazon_hidden_statuses";
 const hiddenStatuses = new Set(
@@ -129,6 +140,14 @@ function addDays(dateStr, days) {
   return formatISO(d);
 }
 
+function formatDisplayDateTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${formatDisplayDate(formatISO(d))} ${hh}:${mm}`;
+}
+
 /* ---------- صيغة المخاطب حسب الشخص (أسيل: مؤنث، منذر: مذكر) ---------- */
 
 function isMale() {
@@ -174,6 +193,11 @@ function startApp() {
   document.getElementById("current-user-label").textContent = `${g("أنتِ", "أنت")}: ${currentUser}`;
   const tagInputEl = document.getElementById("field-tag-input");
   if (tagInputEl) tagInputEl.placeholder = g("اكتبي وسمًا واضغطي Enter", "اكتب وسمًا واضغط Enter");
+
+  const lastSeenKey = `tawazon_last_seen_${currentUser}`;
+  sessionLastSeen = localStorage.getItem(lastSeenKey); // null أول مرة = لا نعرض شارة تحديثات
+  localStorage.setItem(lastSeenKey, new Date().toISOString());
+
   subscribeRealtime();
 }
 
@@ -191,13 +215,18 @@ function subscribeRealtime() {
     links = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
     render();
   });
+
+  onSnapshot(commentsCol, (snapshot) => {
+    comments = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    render();
+  });
 }
 
 /* ---------- بناء الشجرة ---------- */
 
 function getChildren(parentId) {
   return tasks
-    .filter((t) => t.parent_id === parentId)
+    .filter((t) => t.parent_id === parentId && !t.deleted)
     .sort((a, b) => a.sort_order - b.sort_order);
 }
 
@@ -208,6 +237,22 @@ function getDescendants(taskId) {
     const t = stack.pop();
     result.push(t);
     stack.push(...getChildren(t.id));
+  }
+  return result;
+}
+
+/* نسخ "خام" تتجاهل حالة الحذف — تُستخدم فقط لعمليات النقل للسلة/الاسترجاع/الحذف النهائي */
+function getChildrenRaw(parentId) {
+  return tasks.filter((t) => t.parent_id === parentId);
+}
+
+function getDescendantsRaw(taskId) {
+  const result = [];
+  const stack = [...getChildrenRaw(taskId)];
+  while (stack.length) {
+    const t = stack.pop();
+    result.push(t);
+    stack.push(...getChildrenRaw(t.id));
   }
   return result;
 }
@@ -225,6 +270,11 @@ function matchesFilter(task) {
   if (assigneeFilter !== "all" && task.assignee !== assigneeFilter) return false;
   if (tagFilters.size > 0 && !(task.tags || []).some((t) => tagFilters.has(t))) return false;
   if (hiddenStatuses.has(task.status)) return false;
+
+  if (searchQuery) {
+    const haystack = `${task.title} ${task.notes || ""} ${(task.tags || []).join(" ")}`.toLowerCase();
+    if (!haystack.includes(searchQuery)) return false;
+  }
 
   if (dateFilter === "all") return true;
   if (!task.due_date) return false;
@@ -394,6 +444,22 @@ function renderUserBrief() {
   greeting.textContent = `أهلًا ${currentUser} 👋`;
   brief.appendChild(greeting);
 
+  if (sessionLastSeen) {
+    const newTaskUpdates = tasks.filter(
+      (t) => t.last_edited_by && t.last_edited_by !== currentUser && t.last_edited_at && t.last_edited_at > sessionLastSeen
+    ).length;
+    const newComments = comments.filter(
+      (c) => c.author && c.author !== currentUser && c.created_at && c.created_at > sessionLastSeen
+    ).length;
+    const totalNew = newTaskUpdates + newComments;
+    if (totalNew > 0) {
+      const chip = document.createElement("span");
+      chip.className = "user-brief-chip updates";
+      chip.textContent = `🔔 ${totalNew} تحديث جديد منذ آخر زيارة`;
+      brief.appendChild(chip);
+    }
+  }
+
   const goToFilter = (filterName) => {
     const btn = document.querySelector(`.filter-btn[data-filter="${filterName}"]`);
     if (btn) btn.click();
@@ -441,6 +507,193 @@ function render() {
   }
 
   topLevel.forEach((task) => list.appendChild(renderTaskCard(task, 0)));
+}
+
+/* ---- سجل الملاحظات/التعليقات لكل مهمة (بديل الملاحظة الوحيدة القابلة للمسح)، مع إمكانية إرفاق صورة/ملف ---- */
+function renderCommentsSection(task) {
+  const wrap = document.createElement("div");
+  wrap.className = "comments-wrap";
+
+  const taskComments = comments
+    .filter((c) => c.task_id === task.id)
+    .sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+
+  const feed = document.createElement("div");
+  feed.className = "comments-feed";
+
+  if (task.notes && taskComments.length === 0) {
+    const legacy = document.createElement("div");
+    legacy.className = "comment-item comment-legacy";
+    const head = document.createElement("div");
+    head.className = "comment-head";
+    const author = document.createElement("span");
+    author.className = "comment-author";
+    author.textContent = "📌 ملاحظة سابقة";
+    head.appendChild(author);
+    legacy.appendChild(head);
+    const text = document.createElement("div");
+    text.className = "comment-text";
+    text.textContent = task.notes;
+    legacy.appendChild(text);
+    feed.appendChild(legacy);
+  }
+
+  if (taskComments.length === 0 && !task.notes) {
+    const empty = document.createElement("div");
+    empty.className = "comments-empty";
+    empty.textContent = g("لا توجد ملاحظات بعد — اكتبي أول ملاحظة", "لا توجد ملاحظات بعد — اكتب أول ملاحظة");
+    feed.appendChild(empty);
+  }
+
+  taskComments.forEach((c) => {
+    const item = document.createElement("div");
+    item.className = "comment-item";
+
+    const head = document.createElement("div");
+    head.className = "comment-head";
+    const author = document.createElement("span");
+    author.className = "comment-author";
+    author.textContent = c.author;
+    head.appendChild(author);
+    const time = document.createElement("span");
+    time.className = "comment-time";
+    time.textContent = formatDisplayDateTime(c.created_at);
+    head.appendChild(time);
+    if (c.author === currentUser) {
+      const delBtn = document.createElement("button");
+      delBtn.type = "button";
+      delBtn.className = "comment-delete-btn";
+      delBtn.textContent = "✕";
+      delBtn.title = "حذف";
+      delBtn.addEventListener("click", () => deleteComment(c.id));
+      head.appendChild(delBtn);
+    }
+    item.appendChild(head);
+
+    if (c.text) {
+      const text = document.createElement("div");
+      text.className = "comment-text";
+      text.textContent = c.text;
+      item.appendChild(text);
+    }
+
+    if (c.attachment_url) {
+      if (c.attachment_type && c.attachment_type.startsWith("image/")) {
+        const link = document.createElement("a");
+        link.href = c.attachment_url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        const img = document.createElement("img");
+        img.src = c.attachment_url;
+        img.alt = c.attachment_name || "";
+        img.className = "comment-attachment-image";
+        link.appendChild(img);
+        item.appendChild(link);
+      } else {
+        const fileLink = document.createElement("a");
+        fileLink.href = c.attachment_url;
+        fileLink.target = "_blank";
+        fileLink.rel = "noopener";
+        fileLink.className = "comment-attachment-file";
+        fileLink.textContent = `📎 ${c.attachment_name || "ملف مرفق"}`;
+        item.appendChild(fileLink);
+      }
+    }
+
+    feed.appendChild(item);
+  });
+
+  wrap.appendChild(feed);
+
+  let pendingFile = null;
+  const composer = document.createElement("form");
+  composer.className = "comment-composer";
+
+  const filePreview = document.createElement("div");
+  filePreview.className = "comment-file-preview hidden";
+
+  const composerRow = document.createElement("div");
+  composerRow.className = "comment-composer-row";
+
+  const fileInput = document.createElement("input");
+  fileInput.type = "file";
+  fileInput.className = "hidden";
+  fileInput.accept = "image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt";
+
+  const attachBtn = document.createElement("button");
+  attachBtn.type = "button";
+  attachBtn.className = "comment-attach-btn";
+  attachBtn.title = g("إرفاق صورة أو ملف", "إرفاق صورة أو ملف");
+  attachBtn.textContent = "📎";
+  attachBtn.addEventListener("click", () => fileInput.click());
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      alert("حجم الملف كبير جدًا (الحد الأقصى 8 ميجابايت)");
+      fileInput.value = "";
+      return;
+    }
+    pendingFile = file;
+    filePreview.innerHTML = "";
+    const nameSpan = document.createElement("span");
+    nameSpan.textContent = `📎 ${file.name}`;
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.textContent = "✕";
+    removeBtn.addEventListener("click", () => {
+      pendingFile = null;
+      fileInput.value = "";
+      filePreview.classList.add("hidden");
+    });
+    filePreview.appendChild(nameSpan);
+    filePreview.appendChild(removeBtn);
+    filePreview.classList.remove("hidden");
+  });
+
+  const commentInput = document.createElement("input");
+  commentInput.type = "text";
+  commentInput.maxLength = 1000;
+  commentInput.placeholder = g("أضيفي ملاحظة أو تعليقًا...", "أضف ملاحظة أو تعليقًا...");
+  attachDigitSanitizer(commentInput);
+
+  const sendBtn = document.createElement("button");
+  sendBtn.type = "submit";
+  sendBtn.className = "comment-send-btn";
+  sendBtn.title = "إرسال";
+  sendBtn.textContent = "➤";
+
+  composerRow.appendChild(attachBtn);
+  composerRow.appendChild(commentInput);
+  composerRow.appendChild(sendBtn);
+  composer.appendChild(filePreview);
+  composer.appendChild(composerRow);
+  composer.appendChild(fileInput);
+
+  composer.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const text = convertArabicDigits(commentInput.value.trim());
+    const file = pendingFile;
+    if (!text && !file) return;
+    sendBtn.disabled = true;
+    attachBtn.disabled = true;
+    try {
+      await addComment(task.id, text, file);
+      commentInput.value = "";
+      pendingFile = null;
+      fileInput.value = "";
+      filePreview.classList.add("hidden");
+    } catch (err) {
+      alert(g("تعذّر إرسال الملاحظة، حاولي مرة أخرى", "تعذّر إرسال الملاحظة، حاول مرة أخرى"));
+    }
+    sendBtn.disabled = false;
+    attachBtn.disabled = false;
+    commentInput.focus();
+  });
+
+  wrap.appendChild(composer);
+  return wrap;
 }
 
 function renderTaskCard(task, level) {
@@ -496,7 +749,16 @@ function renderTaskCard(task, level) {
 
   const title = document.createElement("div");
   title.className = "task-title";
-  title.textContent = task.title;
+  if (task.priority === "عاجل" || task.priority === "مهم") {
+    const flag = document.createElement("span");
+    flag.className = `priority-flag priority-${task.priority === "عاجل" ? "urgent" : "important"}`;
+    flag.textContent = task.priority === "عاجل" ? "🔴" : "🟡";
+    flag.title = task.priority;
+    title.appendChild(flag);
+  }
+  const titleText = document.createElement("span");
+  titleText.textContent = task.title;
+  title.appendChild(titleText);
   main.appendChild(title);
 
   const isOverdue = task.due_date && task.due_date < todayStr() && task.status !== "مكتملة";
@@ -576,17 +838,7 @@ function renderTaskCard(task, level) {
     const details = document.createElement("div");
     details.className = "task-details";
 
-    const notesArea = document.createElement("textarea");
-    notesArea.className = "task-notes-input";
-    notesArea.placeholder = g("أضيفي ملاحظة هنا...", "أضف ملاحظة هنا...");
-    notesArea.rows = 2;
-    notesArea.value = task.notes || "";
-    attachDigitSanitizer(notesArea);
-    notesArea.addEventListener("change", () => {
-      const val = notesArea.value.trim();
-      if (val !== (task.notes || "")) updateTask(task.id, { notes: val || null });
-    });
-    details.appendChild(notesArea);
+    details.appendChild(renderCommentsSection(task));
 
     const linked = links.filter((l) => l.source_task_id === task.id);
     if (linked.length > 0) {
@@ -663,7 +915,7 @@ function renderTaskCard(task, level) {
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";
     deleteBtn.className = "btn-icon";
-    deleteBtn.title = "حذف";
+    deleteBtn.title = "نقل لسلة المهملات";
     deleteBtn.textContent = "🗑️";
     deleteBtn.addEventListener("click", () => deleteTask(task.id));
     actionsRow.appendChild(deleteBtn);
@@ -731,7 +983,7 @@ function toggleLinkPicker(taskId, container) {
   emptyOpt.textContent = "— اختر مهمة —";
   select.appendChild(emptyOpt);
   tasks
-    .filter((t) => t.id !== taskId)
+    .filter((t) => t.id !== taskId && !t.deleted)
     .forEach((t) => {
       const opt = document.createElement("option");
       opt.value = t.id;
@@ -764,6 +1016,7 @@ async function quickAddSubtask(parentId, title) {
     assignee: currentUser,
     due_date: null,
     status: "لم تبدأ",
+    priority: "عادي",
     notes: null,
     tags: [],
     parent_id: parentId,
@@ -783,18 +1036,82 @@ async function updateTask(id, fields) {
 }
 
 async function deleteTask(id) {
-  if (!confirm(g("هل تريدين حذف هذه المهمة وكل ما يتبعها؟", "هل تريد حذف هذه المهمة وكل ما يتبعها؟"))) return;
+  if (!confirm(g("هل تريدين نقل هذه المهمة وكل ما يتبعها إلى سلة المهملات؟", "هل تريد نقل هذه المهمة وكل ما يتبعها إلى سلة المهملات؟"))) return;
 
-  const idsToDelete = [id, ...getDescendants(id).map((t) => t.id)];
+  const idsToTrash = [id, ...getDescendantsRaw(id).map((t) => t.id)];
+  const now = new Date().toISOString();
+  const batch = writeBatch(db);
+  idsToTrash.forEach((taskId) => batch.update(doc(db, "tasks", taskId), { deleted: true, deleted_at: now }));
+  await batch.commit();
+}
+
+async function restoreTask(id) {
+  const idsToRestore = [id, ...getDescendantsRaw(id).map((t) => t.id)];
+  const batch = writeBatch(db);
+  idsToRestore.forEach((taskId) => batch.update(doc(db, "tasks", taskId), { deleted: false, deleted_at: null }));
+  await batch.commit();
+}
+
+async function permanentlyDeleteTask(id) {
+  const idsToDelete = [id, ...getDescendantsRaw(id).map((t) => t.id)];
   const idSet = new Set(idsToDelete);
   const linksToDelete = links.filter(
     (l) => idSet.has(l.source_task_id) || idSet.has(l.target_task_id)
   );
+  const commentsToDelete = comments.filter((c) => idSet.has(c.task_id));
 
   const batch = writeBatch(db);
   idsToDelete.forEach((taskId) => batch.delete(doc(db, "tasks", taskId)));
   linksToDelete.forEach((l) => batch.delete(doc(db, "task_links", l.id)));
+  commentsToDelete.forEach((c) => batch.delete(doc(db, "task_comments", c.id)));
   await batch.commit();
+}
+
+async function emptyTrash() {
+  const trashedIds = tasks.filter((t) => t.deleted).map((t) => t.id);
+  if (trashedIds.length === 0) return;
+  if (!confirm(g("هل تريدين حذف كل عناصر سلة المهملات نهائيًا؟ لا يمكن التراجع.", "هل تريد حذف كل عناصر سلة المهملات نهائيًا؟ لا يمكن التراجع."))) return;
+
+  const idSet = new Set(trashedIds);
+  const linksToDelete = links.filter(
+    (l) => idSet.has(l.source_task_id) || idSet.has(l.target_task_id)
+  );
+  const commentsToDelete = comments.filter((c) => idSet.has(c.task_id));
+
+  const batch = writeBatch(db);
+  trashedIds.forEach((taskId) => batch.delete(doc(db, "tasks", taskId)));
+  linksToDelete.forEach((l) => batch.delete(doc(db, "task_links", l.id)));
+  commentsToDelete.forEach((c) => batch.delete(doc(db, "task_comments", c.id)));
+  await batch.commit();
+}
+
+async function addComment(taskId, text, file) {
+  let attachmentUrl = null;
+  let attachmentName = null;
+  let attachmentType = null;
+
+  if (file) {
+    const path = `attachments/${taskId}/${Date.now()}_${file.name}`;
+    const fileRef = storageRef(storage, path);
+    await uploadBytes(fileRef, file);
+    attachmentUrl = await getDownloadURL(fileRef);
+    attachmentName = file.name;
+    attachmentType = file.type || null;
+  }
+
+  await addDoc(commentsCol, {
+    task_id: taskId,
+    author: currentUser,
+    text: text || "",
+    attachment_url: attachmentUrl,
+    attachment_name: attachmentName,
+    attachment_type: attachmentType,
+    created_at: new Date().toISOString(),
+  });
+}
+
+async function deleteComment(commentId) {
+  await deleteDoc(doc(db, "task_comments", commentId));
 }
 
 async function moveTask(task, direction) {
@@ -829,6 +1146,7 @@ const fieldTitle = document.getElementById("field-title");
 const fieldAssignee = document.getElementById("field-assignee");
 const fieldDueDate = document.getElementById("field-due-date");
 const fieldStatus = document.getElementById("field-status");
+const fieldPriority = document.getElementById("field-priority");
 const fieldNotes = document.getElementById("field-notes");
 const fieldLinkSelect = document.getElementById("field-link-select");
 const fieldTagInput = document.getElementById("field-tag-input");
@@ -929,6 +1247,7 @@ function openTaskModal({ task = null, parentId = null }) {
   fieldAssignee.value = task ? task.assignee : currentUser;
   fieldDueDate.value = task ? task.due_date || "" : "";
   fieldStatus.value = task ? task.status : "لم تبدأ";
+  fieldPriority.value = task ? task.priority || "عادي" : "عادي";
   fieldNotes.value = task ? task.notes || "" : "";
 
   currentTags = task && task.tags ? [...task.tags] : [];
@@ -937,7 +1256,7 @@ function openTaskModal({ task = null, parentId = null }) {
 
   fieldLinkSelect.innerHTML = `<option value="">— اختر مهمة —</option>`;
   tasks
-    .filter((t) => !task || t.id !== task.id)
+    .filter((t) => (!task || t.id !== task.id) && !t.deleted)
     .forEach((t) => {
       const opt = document.createElement("option");
       opt.value = t.id;
@@ -959,6 +1278,7 @@ form.addEventListener("submit", async (e) => {
     assignee: fieldAssignee.value,
     due_date: fieldDueDate.value || null,
     status: fieldStatus.value,
+    priority: fieldPriority.value,
     notes: fieldNotes.value.trim() || null,
     tags: [...currentTags],
     last_edited_by: currentUser,
@@ -1001,6 +1321,166 @@ document.querySelectorAll(".filter-btn").forEach((btn) => {
 document.getElementById("assignee-filter").addEventListener("change", (e) => {
   assigneeFilter = e.target.value;
   render();
+});
+
+const searchInput = document.getElementById("search-input");
+attachDigitSanitizer(searchInput);
+searchInput.addEventListener("input", () => {
+  searchQuery = convertArabicDigits(searchInput.value.trim().toLowerCase());
+  render();
+});
+
+/* ---------- سلة المهملات ---------- */
+
+function getTrashRoots() {
+  return tasks.filter(
+    (t) => t.deleted && !(t.parent_id && tasksById[t.parent_id] && tasksById[t.parent_id].deleted)
+  );
+}
+
+function renderTrashList() {
+  const list = document.getElementById("trash-list");
+  list.innerHTML = "";
+  const roots = getTrashRoots();
+
+  if (roots.length === 0) {
+    list.innerHTML = `<div class="empty-state">سلة المهملات فارغة</div>`;
+    return;
+  }
+
+  roots.forEach((task) => {
+    const item = document.createElement("div");
+    item.className = "trash-item";
+
+    const info = document.createElement("div");
+    info.className = "trash-item-info";
+    const titleEl = document.createElement("span");
+    titleEl.className = "trash-item-title";
+    titleEl.textContent = task.title;
+    const metaEl = document.createElement("span");
+    metaEl.className = "trash-item-meta";
+    metaEl.textContent = `${task.assignee}${task.deleted_at ? " · " + formatDisplayDate(task.deleted_at.slice(0, 10)) : ""}`;
+    info.appendChild(titleEl);
+    info.appendChild(metaEl);
+
+    const actions = document.createElement("div");
+    actions.className = "trash-item-actions";
+
+    const restoreBtn = document.createElement("button");
+    restoreBtn.type = "button";
+    restoreBtn.className = "btn-icon";
+    restoreBtn.title = "استرجاع";
+    restoreBtn.textContent = "↩️";
+    restoreBtn.addEventListener("click", async () => {
+      await restoreTask(task.id);
+      renderTrashList();
+    });
+
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "btn-icon";
+    delBtn.title = "حذف نهائي";
+    delBtn.textContent = "🗑️";
+    delBtn.addEventListener("click", async () => {
+      if (!confirm(g("حذف نهائي لا يمكن التراجع عنه، متأكدة؟", "حذف نهائي لا يمكن التراجع عنه، متأكد؟"))) return;
+      await permanentlyDeleteTask(task.id);
+      renderTrashList();
+    });
+
+    actions.appendChild(restoreBtn);
+    actions.appendChild(delBtn);
+    item.appendChild(info);
+    item.appendChild(actions);
+    list.appendChild(item);
+  });
+}
+
+document.getElementById("trash-btn").addEventListener("click", () => {
+  renderTrashList();
+  document.getElementById("trash-modal").classList.remove("hidden");
+});
+document.getElementById("close-trash-btn").addEventListener("click", () => {
+  document.getElementById("trash-modal").classList.add("hidden");
+});
+document.getElementById("empty-trash-btn").addEventListener("click", async () => {
+  await emptyTrash();
+  renderTrashList();
+});
+
+/* ---------- لوحة التوازن ---------- */
+
+function renderBalanceStats() {
+  const container = document.getElementById("balance-content");
+  container.innerHTML = "";
+
+  const today = todayStr();
+  const weekAgo = addDays(today, -6);
+  const people = ["أسيل", "منذر"];
+
+  const openCounts = {};
+  const doneWeekCounts = {};
+  const overdueCounts = {};
+
+  people.forEach((p) => {
+    const mine = tasks.filter((t) => !t.deleted && (t.assignee === p || t.assignee === "كلاهما"));
+    openCounts[p] = mine.filter((t) => t.status !== "مكتملة").length;
+    doneWeekCounts[p] = mine.filter(
+      (t) => t.status === "مكتملة" && t.last_edited_at && t.last_edited_at.slice(0, 10) >= weekAgo
+    ).length;
+    overdueCounts[p] = mine.filter((t) => t.due_date && t.due_date < today && t.status !== "مكتملة").length;
+  });
+
+  const rows = [
+    { label: "مهام مفتوحة", data: openCounts },
+    { label: "أُنجزت هذا الأسبوع", data: doneWeekCounts },
+    { label: "متأخرة", data: overdueCounts },
+  ];
+
+  rows.forEach((row) => {
+    const max = Math.max(row.data["أسيل"], row.data["منذر"], 1);
+    const rowEl = document.createElement("div");
+    rowEl.className = "balance-row";
+
+    const labelEl = document.createElement("div");
+    labelEl.className = "balance-label";
+    labelEl.textContent = row.label;
+    rowEl.appendChild(labelEl);
+
+    people.forEach((p) => {
+      const barWrap = document.createElement("div");
+      barWrap.className = "balance-bar-wrap";
+
+      const barName = document.createElement("span");
+      barName.className = "balance-bar-name";
+      barName.textContent = p;
+
+      const bar = document.createElement("div");
+      bar.className = "balance-bar";
+      const fill = document.createElement("div");
+      fill.className = `balance-bar-fill ${p === "أسيل" ? "balance-aseel" : "balance-munther"}`;
+      fill.style.width = `${Math.round((row.data[p] / max) * 100)}%`;
+      bar.appendChild(fill);
+
+      const count = document.createElement("span");
+      count.className = "balance-bar-count";
+      count.textContent = String(row.data[p]);
+
+      barWrap.appendChild(barName);
+      barWrap.appendChild(bar);
+      barWrap.appendChild(count);
+      rowEl.appendChild(barWrap);
+    });
+
+    container.appendChild(rowEl);
+  });
+}
+
+document.getElementById("balance-btn").addEventListener("click", () => {
+  renderBalanceStats();
+  document.getElementById("balance-modal").classList.remove("hidden");
+});
+document.getElementById("close-balance-btn").addEventListener("click", () => {
+  document.getElementById("balance-modal").classList.add("hidden");
 });
 
 /* ---------- بدء التشغيل ---------- */
