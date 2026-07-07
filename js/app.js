@@ -36,9 +36,46 @@ let links = [];         // كل task_links
 let currentUser = null;
 let dateFilter = "all";
 let assigneeFilter = "all";
+let tagFilter = "all";
 const expandedIds = new Set();
 let editingTaskId = null;
 let addingParentId = null;
+let currentTags = [];
+
+const STATUS_ORDER = ["لم تبدأ", "جارية", "مكتملة"];
+const STATUS_KEY = { "لم تبدأ": "todo", "جارية": "doing", "مكتملة": "done" };
+const TAG_COLORS = ["#e57373", "#64b5f6", "#81c784", "#ffca28", "#ba68c8", "#4db6ac", "#f06292", "#a1887f", "#90a4ae"];
+
+function tagColor(tag) {
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) hash = (hash * 31 + tag.charCodeAt(i)) >>> 0;
+  return TAG_COLORS[hash % TAG_COLORS.length];
+}
+
+/* ---------- الوضع الداكن/الفاتح ---------- */
+
+const THEME_KEY = "tawazon_theme";
+
+function initTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  const theme = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  applyTheme(theme);
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const btn = document.getElementById("theme-toggle-btn");
+  if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
+}
+
+document.getElementById("theme-toggle-btn").addEventListener("click", () => {
+  const current = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+  const next = current === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+});
+
+initTheme();
 
 /* ---------- أدوات مساعدة ---------- */
 
@@ -165,6 +202,7 @@ function computeProgress(taskId) {
 
 function matchesFilter(task) {
   if (assigneeFilter !== "all" && task.assignee !== assigneeFilter) return false;
+  if (tagFilter !== "all" && !(task.tags || []).includes(tagFilter)) return false;
 
   if (dateFilter === "all") return true;
   if (!task.due_date) return false;
@@ -181,31 +219,27 @@ function nodeMatchesOrHasMatchingDescendant(task) {
   return getChildren(task.id).some((child) => nodeMatchesOrHasMatchingDescendant(child));
 }
 
-/* ---------- الاستمرارية ---------- */
-
-function computeStreak() {
-  const completedDates = new Set(
-    tasks
-      .filter((t) => t.status === "مكتملة" && t.last_edited_at)
-      .map((t) => t.last_edited_at.slice(0, 10))
-  );
-
-  let streak = 0;
-  let cursor = todayStr();
-  if (!completedDates.has(cursor)) {
-    cursor = addDays(cursor, -1);
-  }
-  while (completedDates.has(cursor)) {
-    streak++;
-    cursor = addDays(cursor, -1);
-  }
-  return streak;
-}
-
 /* ---------- الرسم ---------- */
 
+function renderTagFilterOptions() {
+  const select = document.getElementById("tag-filter");
+  const allTags = new Set();
+  tasks.forEach((t) => (t.tags || []).forEach((tag) => allTags.add(tag)));
+
+  const previousValue = select.value;
+  select.innerHTML = `<option value="all">كل الوسوم</option>`;
+  [...allTags].sort().forEach((tag) => {
+    const opt = document.createElement("option");
+    opt.value = tag;
+    opt.textContent = tag;
+    select.appendChild(opt);
+  });
+  if (allTags.has(previousValue)) select.value = previousValue;
+  else tagFilter = "all";
+}
+
 function render() {
-  document.getElementById("streak-count").textContent = computeStreak();
+  renderTagFilterOptions();
 
   const list = document.getElementById("task-list");
   list.innerHTML = "";
@@ -249,17 +283,15 @@ function renderTaskCard(task, level) {
     row.appendChild(spacer);
   }
 
-  const statusSelect = document.createElement("select");
-  statusSelect.className = "task-status-select";
-  ["لم تبدأ", "جارية", "مكتملة"].forEach((s) => {
-    const opt = document.createElement("option");
-    opt.value = s;
-    opt.textContent = s;
-    if (s === task.status) opt.selected = true;
-    statusSelect.appendChild(opt);
+  const statusBtn = document.createElement("button");
+  statusBtn.type = "button";
+  statusBtn.className = `status-toggle status-${STATUS_KEY[task.status] || "todo"}`;
+  statusBtn.title = `الحالة: ${task.status} (اضغطي للتغيير)`;
+  statusBtn.addEventListener("click", () => {
+    const next = STATUS_ORDER[(STATUS_ORDER.indexOf(task.status) + 1) % STATUS_ORDER.length];
+    updateTask(task.id, { status: next });
   });
-  statusSelect.addEventListener("change", () => updateTask(task.id, { status: statusSelect.value }));
-  row.appendChild(statusSelect);
+  row.appendChild(statusBtn);
 
   const main = document.createElement("div");
   main.className = "task-main";
@@ -283,6 +315,19 @@ function renderTaskCard(task, level) {
     bar.className = "progress-bar-outer";
     bar.innerHTML = `<div class="progress-bar-inner" style="width:${pct}%"></div>`;
     main.appendChild(bar);
+  }
+
+  if (task.tags && task.tags.length > 0) {
+    const tagsWrap = document.createElement("div");
+    tagsWrap.className = "task-tags";
+    task.tags.forEach((tag) => {
+      const chip = document.createElement("span");
+      chip.className = "tag-chip";
+      chip.style.background = tagColor(tag);
+      chip.textContent = tag;
+      tagsWrap.appendChild(chip);
+    });
+    main.appendChild(tagsWrap);
   }
 
   if (task.notes) {
@@ -486,9 +531,41 @@ const fieldDueDate = document.getElementById("field-due-date");
 const fieldStatus = document.getElementById("field-status");
 const fieldNotes = document.getElementById("field-notes");
 const fieldLinkSelect = document.getElementById("field-link-select");
+const fieldTagInput = document.getElementById("field-tag-input");
+const fieldTagsList = document.getElementById("field-tags-list");
 
 attachDigitSanitizer(fieldTitle);
 attachDigitSanitizer(fieldNotes);
+
+function renderTagChips() {
+  fieldTagsList.innerHTML = "";
+  currentTags.forEach((tag) => {
+    const chip = document.createElement("span");
+    chip.className = "tag-chip tag-chip-removable";
+    chip.style.background = tagColor(tag);
+    chip.innerHTML = `<span>${tag}</span>`;
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.textContent = "✕";
+    removeBtn.addEventListener("click", () => {
+      currentTags = currentTags.filter((t) => t !== tag);
+      renderTagChips();
+    });
+    chip.appendChild(removeBtn);
+    fieldTagsList.appendChild(chip);
+  });
+}
+
+fieldTagInput.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  e.preventDefault();
+  const value = convertArabicDigits(fieldTagInput.value.trim());
+  if (value && !currentTags.includes(value)) {
+    currentTags.push(value);
+    renderTagChips();
+  }
+  fieldTagInput.value = "";
+});
 
 function openTaskModal({ task = null, parentId = null }) {
   editingTaskId = task ? task.id : null;
@@ -500,6 +577,10 @@ function openTaskModal({ task = null, parentId = null }) {
   fieldDueDate.value = task ? task.due_date || "" : "";
   fieldStatus.value = task ? task.status : "لم تبدأ";
   fieldNotes.value = task ? task.notes || "" : "";
+
+  currentTags = task && task.tags ? [...task.tags] : [];
+  fieldTagInput.value = "";
+  renderTagChips();
 
   fieldLinkSelect.innerHTML = `<option value="">— اختر مهمة —</option>`;
   tasks
@@ -526,6 +607,7 @@ form.addEventListener("submit", async (e) => {
     due_date: fieldDueDate.value || null,
     status: fieldStatus.value,
     notes: fieldNotes.value.trim() || null,
+    tags: [...currentTags],
     last_edited_by: currentUser,
     last_edited_at: new Date().toISOString(),
   };
@@ -565,6 +647,11 @@ document.querySelectorAll(".filter-btn").forEach((btn) => {
 
 document.getElementById("assignee-filter").addEventListener("change", (e) => {
   assigneeFilter = e.target.value;
+  render();
+});
+
+document.getElementById("tag-filter").addEventListener("change", (e) => {
+  tagFilter = e.target.value;
   render();
 });
 

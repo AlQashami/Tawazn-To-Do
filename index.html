@@ -28,11 +28,7 @@
       <span class="current-user" id="current-user-label"></span>
     </div>
     <div class="header-left">
-      <div class="streak-badge" title="أيام الاستمرارية المتتالية">
-        <span class="streak-flame">🔥</span>
-        <span id="streak-count">0</span>
-        <span class="streak-label">يوم استمرارية</span>
-      </div>
+      <button class="btn-icon" id="theme-toggle-btn" title="تبديل الوضع الداكن/الفاتح">🌙</button>
       <button class="btn-icon" id="switch-user-btn" title="تبديل المستخدم">⇄</button>
     </div>
   </header>
@@ -44,12 +40,17 @@
       <button class="filter-btn" data-filter="week">هذا الأسبوع</button>
       <button class="filter-btn" data-filter="overdue">متأخرة</button>
     </div>
-    <select id="assignee-filter" class="assignee-select">
-      <option value="all">الكل (حسب الشخص)</option>
-      <option value="أسيل">أسيل</option>
-      <option value="منذر">منذر</option>
-      <option value="كلاهما">كلاهما</option>
-    </select>
+    <div class="filter-group">
+      <select id="assignee-filter" class="assignee-select">
+        <option value="all">الكل (حسب الشخص)</option>
+        <option value="أسيل">أسيل</option>
+        <option value="منذر">منذر</option>
+        <option value="كلاهما">كلاهما</option>
+      </select>
+      <select id="tag-filter" class="assignee-select">
+        <option value="all">كل الوسوم</option>
+      </select>
+    </div>
   </div>
 
   <main class="task-list" id="task-list"></main>
@@ -85,6 +86,12 @@
 
       <label>ملاحظة (اختياري)</label>
       <textarea id="field-notes" maxlength="2000" rows="3"></textarea>
+
+      <label>الوسوم (اختياري)</label>
+      <div class="tags-input-wrap">
+        <div class="tags-chip-list" id="field-tags-list"></div>
+        <input type="text" id="field-tag-input" placeholder="اكتبي وسمًا واضغطي Enter">
+      </div>
 
       <label>ربط بمهمة أخرى (اختياري)</label>
       <select id="field-link-select">
