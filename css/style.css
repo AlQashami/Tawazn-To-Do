@@ -72,6 +72,8 @@
 
 * { box-sizing: border-box; }
 
+html, body { overflow-x: hidden; max-width: 100%; }
+
 body {
   margin: 0;
   font-family: 'ThmanyahSans', sans-serif;
@@ -80,6 +82,7 @@ body {
   color: var(--text);
   direction: rtl;
   transition: background-color 0.25s ease, color 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .hidden { display: none !important; }
@@ -470,7 +473,37 @@ body {
   margin-top: 22px;
 }
 
+.task-title { word-break: break-word; }
+
+@media (max-width: 768px) {
+  .task-list { max-width: 100%; }
+}
+
 @media (max-width: 560px) {
   .app-header, .filters-bar { padding-inline: 14px; }
   .task-list { padding-inline: 14px; }
+}
+
+@media (max-width: 480px) {
+  .app-header { padding: 12px 14px; }
+  .logo { font-size: 19px; }
+  .current-user { display: none; }
+
+  .name-picker-box, .modal-box { padding: 22px 18px; }
+  .name-picker-buttons { flex-direction: column; }
+
+  .filters-bar { padding-block: 10px; }
+  .filter-btn { padding: 6px 12px; font-size: 13px; }
+
+  .task-card { padding: 12px; }
+  .task-row { flex-wrap: wrap; row-gap: 8px; }
+  .task-main { flex-basis: 100%; }
+  .sort-buttons { margin-inline-start: auto; flex-direction: row; gap: 4px; }
+
+  .btn-icon { padding: 6px 8px; font-size: 19px; }
+  .status-toggle { width: 28px; height: 28px; }
+
+  .fab { width: 52px; height: 52px; font-size: 26px; bottom: 20px; left: 20px; }
+
+  .children-wrap { padding-right: 12px; }
 }
