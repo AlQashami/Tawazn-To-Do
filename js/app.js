@@ -150,6 +150,8 @@ function startApp() {
   document.documentElement.setAttribute("data-user", currentUser);
   document.getElementById("app").classList.remove("hidden");
   document.getElementById("current-user-label").textContent = `${g("أنتِ", "أنت")}: ${currentUser}`;
+  document.getElementById("decision-title-input").placeholder = `${g("أضيفي", "أضف")} بندًا يحتاج قرار منذر...`;
+  document.getElementById("idea-title-input").placeholder = `${g("أضيفي", "أضف")} فكرة جديدة...`;
   subscribeRealtime();
 }
 
@@ -184,7 +186,7 @@ function renderPriorities() {
   const active = projects.filter((p) => p.status === "نشط" && p.is_priority).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
   if (active.length === 0) {
-    row.innerHTML = `<div class="priorities-empty">ما فيه أولويات محددة — علّمي/علّم مشروع بالنجمة ⭐ من القائمة تحت</div>`;
+    row.innerHTML = `<div class="priorities-empty">ما فيه أولويات محددة — ${g("علّمي", "علّم")} مشروع بالنجمة ⭐ من القائمة تحت</div>`;
     return;
   }
 
@@ -378,7 +380,7 @@ function renderProjectDetails(p) {
   const addStepInput = document.createElement("input");
   addStepInput.type = "text";
   addStepInput.maxLength = 200;
-  addStepInput.placeholder = "أضيفي خطوة إضافية...";
+  addStepInput.placeholder = `${g("أضيفي", "أضف")} خطوة إضافية...`;
   addStepForm.appendChild(addStepInput);
 
   const addStepBtn = document.createElement("button");
@@ -405,7 +407,7 @@ async function togglePriority(p) {
     if (currentPriorities.length >= MAX_PRIORITIES) {
       alert(
         `عندكم بالفعل ${MAX_PRIORITIES} أولويات: ${currentPriorities.map((x) => x.title).join("، ")}.\n` +
-          `شيلي/شيل واحدة منهم أول (بالضغط على ⭐) قبل ما تضيفي أولوية جديدة.`
+          `${g("شيلي", "شيل")} واحدة منهم أول (بالضغط على ⭐) قبل ما ${g("تضيفي", "تضيف")} أولوية جديدة.`
       );
       return;
     }
