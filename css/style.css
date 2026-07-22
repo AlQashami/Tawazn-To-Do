@@ -362,6 +362,13 @@ h1 .icon { width: 20px; height: 20px; margin-inline-start: 4px; }
 }
 .delete-x { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; }
 .delete-x:hover { color: var(--danger); }
+.sub-section-head {
+  cursor: pointer;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.sub-section-head h3 { margin: 0; font-size: 13px; font-weight: 700; color: var(--text-muted); }
 
 /* الإنجازات */
 .done-section { background: transparent; border-style: dashed; }

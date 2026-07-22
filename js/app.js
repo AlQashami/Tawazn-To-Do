@@ -165,6 +165,7 @@ function subscribeRealtime() {
   onSnapshot(decisionsCol, (snapshot) => {
     decisions = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderDecisions();
+    renderDecisionsDone();
   });
   onSnapshot(ideasCol, (snapshot) => {
     ideas = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -481,7 +482,8 @@ projectForm.addEventListener("submit", async (e) => {
 function renderDecisions() {
   const list = document.getElementById("decisions-list");
   list.innerHTML = "";
-  const sorted = [...decisions].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
+  const open = decisions.filter((d) => d.status !== "منتهي");
+  const sorted = [...open].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || ""));
 
   if (sorted.length === 0) {
     list.innerHTML = `<div class="empty-state">لا يوجد شيء بانتظار قرار منذر حاليًا 🎉</div>`;
@@ -501,19 +503,73 @@ function renderDecisions() {
     resolveBtn.type = "button";
     resolveBtn.className = "resolve-btn";
     resolveBtn.textContent = "✓ تم البت";
-    resolveBtn.addEventListener("click", () => deleteDoc(doc(db, "decisions", d.id)));
+    resolveBtn.addEventListener("click", () =>
+      updateDoc(doc(db, "decisions", d.id), { status: "منتهي", resolved_at: todayStr() })
+    );
     row.appendChild(resolveBtn);
 
     list.appendChild(row);
   });
 }
 
+function renderDecisionsDone() {
+  const list = document.getElementById("decisions-done-list");
+  list.innerHTML = "";
+  const done = decisions
+    .filter((d) => d.status === "منتهي")
+    .sort((a, b) => (b.resolved_at || "").localeCompare(a.resolved_at || ""));
+
+  if (done.length === 0) {
+    list.innerHTML = `<div class="empty-state">لسه ما فيه قرارات منتهية</div>`;
+    return;
+  }
+
+  done.forEach((d) => {
+    const row = document.createElement("div");
+    row.className = "done-row";
+
+    const title = document.createElement("span");
+    title.className = "item-title";
+    title.textContent = d.title;
+    row.appendChild(title);
+
+    const date = document.createElement("span");
+    date.textContent = formatDisplayDate(d.resolved_at);
+    row.appendChild(date);
+
+    const restoreBtn = document.createElement("button");
+    restoreBtn.type = "button";
+    restoreBtn.className = "restore-btn";
+    restoreBtn.innerHTML = `${icon("undo")}<span>استرجاع</span>`;
+    restoreBtn.addEventListener("click", () =>
+      updateDoc(doc(db, "decisions", d.id), { status: "مفتوح", resolved_at: null })
+    );
+    row.appendChild(restoreBtn);
+
+    list.appendChild(row);
+  });
+}
+
+document.getElementById("decisions-done-toggle").addEventListener("click", () => {
+  const list = document.getElementById("decisions-done-list");
+  const caret = document.getElementById("decisions-done-caret");
+  const isHidden = list.classList.toggle("hidden");
+  caret.innerHTML = icon(isHidden ? "caretDown" : "caretUp");
+});
+document.getElementById("decisions-done-caret").innerHTML = icon("caretDown");
+
 document.getElementById("decision-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const input = document.getElementById("decision-title-input");
   const title = convertArabicDigits(input.value.trim());
   if (!title) return;
-  await addDoc(decisionsCol, { title, created_by: currentUser, created_at: new Date().toISOString() });
+  await addDoc(decisionsCol, {
+    title,
+    created_by: currentUser,
+    created_at: new Date().toISOString(),
+    status: "مفتوح",
+    resolved_at: null,
+  });
   input.value = "";
 });
 
