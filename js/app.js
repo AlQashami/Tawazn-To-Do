@@ -46,6 +46,7 @@ let decisions = [];
 let ideas = [];
 let currentUser = null;
 let editingProjectId = null;
+const expandedProjects = new Set();
 
 /* ---------- أدوات مساعدة ---------- */
 
@@ -226,9 +227,26 @@ function renderProjectRow(p) {
   const row = document.createElement("div");
   row.className = "project-row";
 
+  const isExpanded = expandedProjects.has(p.id);
+
   const title = document.createElement("div");
   title.className = "project-title";
-  title.textContent = p.title;
+
+  const toggleBtn = document.createElement("button");
+  toggleBtn.type = "button";
+  toggleBtn.className = "details-toggle";
+  toggleBtn.title = "خطوات إضافية وملاحظات";
+  toggleBtn.innerHTML = icon(isExpanded ? "caretUp" : "caretDown");
+  toggleBtn.addEventListener("click", () => {
+    if (expandedProjects.has(p.id)) expandedProjects.delete(p.id);
+    else expandedProjects.add(p.id);
+    renderProjects();
+  });
+  title.appendChild(toggleBtn);
+
+  const titleText = document.createElement("span");
+  titleText.textContent = p.title;
+  title.appendChild(titleText);
   row.appendChild(title);
 
   const owner = document.createElement("div");
@@ -284,7 +302,101 @@ function renderProjectRow(p) {
   actions.appendChild(delBtn);
 
   row.appendChild(actions);
+
+  if (isExpanded) row.appendChild(renderProjectDetails(p));
+
   return row;
+}
+
+function renderProjectDetails(p) {
+  const details = document.createElement("div");
+  details.className = "project-details";
+
+  const notesLabel = document.createElement("div");
+  notesLabel.className = "details-label";
+  notesLabel.textContent = "ملاحظات";
+  details.appendChild(notesLabel);
+
+  const notesArea = document.createElement("textarea");
+  notesArea.className = "notes-field";
+  notesArea.maxLength = 1000;
+  notesArea.rows = 2;
+  notesArea.placeholder = "أي تفاصيل إضافية...";
+  notesArea.value = p.notes || "";
+  notesArea.addEventListener("blur", () => {
+    const value = convertArabicDigits(notesArea.value.trim());
+    if (value !== (p.notes || "")) {
+      updateDoc(doc(db, "projects", p.id), { notes: value });
+    }
+  });
+  details.appendChild(notesArea);
+
+  const stepsLabel = document.createElement("div");
+  stepsLabel.className = "details-label";
+  stepsLabel.textContent = "خطوات إضافية";
+  details.appendChild(stepsLabel);
+
+  const steps = p.extra_steps || [];
+  const stepsList = document.createElement("div");
+  stepsList.className = "steps-list";
+  steps.forEach((step, idx) => {
+    const stepRow = document.createElement("div");
+    stepRow.className = "step-row";
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = !!step.done;
+    checkbox.addEventListener("change", () => {
+      const updated = steps.map((s, i) => (i === idx ? { ...s, done: checkbox.checked } : s));
+      updateDoc(doc(db, "projects", p.id), { extra_steps: updated });
+    });
+    stepRow.appendChild(checkbox);
+
+    const stepText = document.createElement("span");
+    stepText.className = `step-text${step.done ? " step-done" : ""}`;
+    stepText.textContent = step.text;
+    stepRow.appendChild(stepText);
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "delete-x";
+    removeBtn.title = "حذف الخطوة";
+    removeBtn.innerHTML = icon("close");
+    removeBtn.addEventListener("click", () => {
+      const updated = steps.filter((_, i) => i !== idx);
+      updateDoc(doc(db, "projects", p.id), { extra_steps: updated });
+    });
+    stepRow.appendChild(removeBtn);
+
+    stepsList.appendChild(stepRow);
+  });
+  details.appendChild(stepsList);
+
+  const addStepForm = document.createElement("form");
+  addStepForm.className = "quick-add-row steps-add-row";
+
+  const addStepInput = document.createElement("input");
+  addStepInput.type = "text";
+  addStepInput.maxLength = 200;
+  addStepInput.placeholder = "أضيفي خطوة إضافية...";
+  addStepForm.appendChild(addStepInput);
+
+  const addStepBtn = document.createElement("button");
+  addStepBtn.type = "submit";
+  addStepBtn.className = "btn btn-secondary btn-sm";
+  addStepBtn.textContent = "إضافة";
+  addStepForm.appendChild(addStepBtn);
+
+  addStepForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const text = convertArabicDigits(addStepInput.value.trim());
+    if (!text) return;
+    updateDoc(doc(db, "projects", p.id), { extra_steps: [...steps, { text, done: false }] });
+    addStepInput.value = "";
+  });
+  details.appendChild(addStepForm);
+
+  return details;
 }
 
 async function togglePriority(p) {
@@ -355,6 +467,8 @@ projectForm.addEventListener("submit", async (e) => {
       sort_order: maxOrder + 1,
       created_at: new Date().toISOString(),
       done_at: null,
+      notes: "",
+      extra_steps: [],
     });
   }
   projectModal.classList.add("hidden");

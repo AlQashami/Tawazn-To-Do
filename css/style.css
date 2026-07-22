@@ -292,6 +292,38 @@ h1 .icon { width: 20px; height: 20px; margin-inline-start: 4px; }
 .star-btn.active { opacity: 1; }
 .empty-state { padding: 16px 4px; font-size: 13px; color: var(--text-muted); text-align: center; }
 
+/* خطوات إضافية وملاحظات المشروع */
+.details-toggle { background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 2px; display: inline-flex; }
+.details-toggle .icon { width: 14px; height: 14px; }
+.project-details {
+  grid-column: 1 / -1;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.details-label { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+.notes-field {
+  font-family: 'ThmanyahSans', sans-serif;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--sand);
+  color: var(--text);
+  resize: vertical;
+}
+.notes-field:focus { outline: none; border-color: var(--green); }
+.steps-list { display: flex; flex-direction: column; gap: 4px; }
+.step-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.step-row input[type="checkbox"] { accent-color: var(--green); cursor: pointer; }
+.step-text { flex: 1; }
+.step-text.step-done { text-decoration: line-through; color: var(--text-muted); }
+.steps-add-row { margin-top: 2px; }
+.steps-add-row input { font-size: 13px; padding: 7px 10px; }
+
 /* إضافة سريعة (قرارات/أفكار) */
 .quick-add-row { display: flex; gap: 8px; margin-top: 10px; }
 .quick-add-row input {
