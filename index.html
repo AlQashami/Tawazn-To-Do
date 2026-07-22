@@ -3,15 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>توازن</title>
+<meta name="color-scheme" content="light dark">
+<title>بوصلة</title>
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <link rel="stylesheet" href="css/style.css">
+<style>html, body { background: #f6f1e7; } @media (prefers-color-scheme: dark) { html, body { background: #14201b; } }</style>
 </head>
 <body>
 
-<!-- شاشة كلمة السر المشتركة (تظهر مرة واحدة لكل جهاز) -->
+<!-- شاشة كلمة السر المشتركة -->
 <div id="auth-gate" class="overlay hidden">
   <div class="name-picker-box">
-    <h1>توازن 🔒</h1>
+    <div class="sadu-mark"></div>
+    <h1>بوصلة <svg class="icon icon-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></h1>
     <p>أدخلي كلمة السر للدخول</p>
     <form id="auth-form">
       <input type="password" id="auth-password" placeholder="كلمة السر" autocomplete="current-password" required>
@@ -26,7 +30,8 @@
 <!-- شاشة اختيار الاسم عند أول فتح -->
 <div id="name-picker" class="overlay hidden">
   <div class="name-picker-box">
-    <h1>مرحبًا في توازن</h1>
+    <div class="sadu-mark"></div>
+    <h1>مرحبًا في بوصلة</h1>
     <p>من أنت؟</p>
     <div class="name-picker-buttons">
       <button class="btn btn-aseel" data-name="أسيل">أنا أسيل</button>
@@ -39,129 +44,107 @@
 
   <header class="app-header">
     <div class="header-right">
-      <h1 class="logo">توازن</h1>
+      <h1 class="logo">بوصلة</h1>
       <span class="current-user" id="current-user-label"></span>
     </div>
     <div class="header-left">
-      <button class="btn-icon" id="balance-btn" title="لوحة التوازن">⚖️</button>
-      <button class="btn-icon" id="trash-btn" title="سلة المهملات">🗑️</button>
-      <button class="btn-icon" id="theme-toggle-btn" title="تبديل الوضع الداكن/الفاتح">🌙</button>
-      <button class="btn-icon" id="switch-user-btn" title="تبديل المستخدم">⇄</button>
+      <button class="btn-icon" id="theme-toggle-btn" title="تبديل الوضع الداكن/الفاتح"></button>
+      <button class="btn-icon" id="switch-user-btn" title="تبديل المستخدم"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h13M17 7l-3-3M17 7l-3 3"/><path d="M20 17H7M7 17l3 3M7 17l3-3"/></svg></button>
     </div>
   </header>
+  <div class="sadu-strip"></div>
 
-  <div class="user-brief" id="user-brief"></div>
+  <main class="board">
 
-  <div class="search-bar">
-    <input type="search" id="search-input" class="search-input" placeholder="🔍 ابحث في المهام..." autocomplete="off">
-  </div>
-
-  <div class="filters-bar">
-    <div class="filter-group" id="date-filters">
-      <button class="filter-btn active" data-filter="all">الكل</button>
-      <button class="filter-btn" data-filter="today">اليوم</button>
-      <button class="filter-btn" data-filter="week">هذا الأسبوع</button>
-      <button class="filter-btn" data-filter="overdue">متأخرة</button>
-    </div>
-    <div class="filter-group">
-      <select id="assignee-filter" class="assignee-select">
-        <option value="all">الكل (حسب الشخص)</option>
-        <option value="أسيل">أسيل</option>
-        <option value="منذر">منذر</option>
-        <option value="كلاهما">كلاهما</option>
-      </select>
-      <div class="tag-filter-dropdown" id="tag-filter-dropdown">
-        <button type="button" class="assignee-select tag-filter-btn" id="tag-filter-btn">كل الوسوم</button>
-        <div class="tag-filter-panel hidden" id="tag-filter-panel"></div>
+    <!-- أولويات الأسبوع -->
+    <section class="board-section priorities-section">
+      <div class="section-head">
+        <h2>أولويات الأسبوع</h2>
+        <span class="section-hint">٣ فقط — أي أولوية جديدة تستبدل واحدة منها</span>
       </div>
-      <div class="tag-filter-dropdown" id="status-filter-dropdown">
-        <button type="button" class="assignee-select tag-filter-btn" id="status-filter-btn">كل الحالات</button>
-        <div class="tag-filter-panel hidden" id="status-filter-panel"></div>
+      <div class="priorities-row" id="priorities-row"></div>
+    </section>
+
+    <!-- المشاريع النشطة -->
+    <section class="board-section">
+      <div class="section-head">
+        <h2>المشاريع النشطة</h2>
+        <button class="btn btn-primary btn-sm" id="add-project-btn">+ مشروع جديد</button>
       </div>
-    </div>
-  </div>
+      <div class="table-head projects-table-head">
+        <span>المشروع</span>
+        <span>المسؤول</span>
+        <span>الخطوة التالية</span>
+        <span>الموعد</span>
+        <span></span>
+      </div>
+      <div id="projects-list" class="projects-list"></div>
+    </section>
 
-  <main class="task-list" id="task-list"></main>
+    <!-- بانتظار قرار منذر -->
+    <section class="board-section">
+      <div class="section-head">
+        <h2>بانتظار قرار منذر</h2>
+      </div>
+      <form id="decision-form" class="quick-add-row">
+        <input type="text" id="decision-title-input" maxlength="200" placeholder="أضيفي بندًا يحتاج قرار منذر...">
+        <button type="submit" class="btn btn-secondary btn-sm">إضافة</button>
+      </form>
+      <div id="decisions-list" class="decisions-list"></div>
+    </section>
 
-  <button class="fab" id="add-main-task-btn" title="إضافة مهمة رئيسية">+</button>
+    <!-- بنك الأفكار -->
+    <section class="board-section">
+      <div class="section-head">
+        <h2>بنك الأفكار</h2>
+      </div>
+      <form id="idea-form" class="quick-add-row">
+        <input type="text" id="idea-title-input" maxlength="200" placeholder="أضيفي فكرة جديدة...">
+        <button type="submit" class="btn btn-secondary btn-sm">إضافة</button>
+      </form>
+      <div id="ideas-list" class="ideas-list"></div>
+    </section>
+
+    <!-- الإنجازات -->
+    <section class="board-section done-section">
+      <div class="section-head" id="done-toggle">
+        <h2>الإنجازات <span id="done-stat" class="done-stat"></span></h2>
+        <span class="section-caret" id="done-caret"></span>
+      </div>
+      <div id="done-list" class="done-list hidden"></div>
+    </section>
+
+  </main>
 
 </div>
 
-<!-- نافذة إضافة/تعديل مهمة -->
-<div id="task-modal" class="overlay hidden">
+<!-- نافذة إضافة/تعديل مشروع -->
+<div id="project-modal" class="overlay hidden">
   <div class="modal-box">
-    <h2 id="modal-title">مهمة جديدة</h2>
-    <form id="task-form">
-      <label>العنوان</label>
-      <input type="text" id="field-title" required maxlength="200">
+    <h2 id="project-modal-title">مشروع جديد</h2>
+    <form id="project-form">
+      <label>اسم المشروع</label>
+      <input type="text" id="field-project-title" required maxlength="200">
 
       <label>المسؤول</label>
-      <select id="field-assignee">
+      <select id="field-project-owner" required>
+        <option value="" disabled selected>— اختر المسؤول —</option>
         <option value="أسيل">أسيل</option>
         <option value="منذر">منذر</option>
         <option value="كلاهما">كلاهما</option>
       </select>
 
-      <label>تاريخ الاستحقاق</label>
-      <input type="date" id="field-due-date" lang="en">
+      <label>الخطوة التالية (خطوة واحدة فقط)</label>
+      <input type="text" id="field-project-next-action" required maxlength="200" placeholder="مثال: إرسال العرض">
 
-      <label>الحالة</label>
-      <select id="field-status">
-        <option value="لم تبدأ">لم تبدأ</option>
-        <option value="جارية">جارية</option>
-        <option value="مكتملة">مكتملة</option>
-      </select>
-
-      <label>الأولوية</label>
-      <select id="field-priority">
-        <option value="عادي">عادي</option>
-        <option value="مهم">مهم ⭐</option>
-        <option value="عاجل">عاجل 🔴</option>
-      </select>
-
-      <label>ملاحظة (اختياري)</label>
-      <textarea id="field-notes" maxlength="2000" rows="3"></textarea>
-
-      <label>الوسوم (اختياري)</label>
-      <div class="tags-input-wrap">
-        <div class="tags-chip-list" id="field-tags-list"></div>
-        <input type="text" id="field-tag-input" placeholder="اكتبي وسمًا واضغطي Enter" autocomplete="off">
-        <div class="tag-suggestions hidden" id="tag-suggestions"></div>
-      </div>
-
-      <label>ربط بمهمة أخرى (اختياري)</label>
-      <select id="field-link-select">
-        <option value="">— اختر مهمة —</option>
-      </select>
+      <label>الموعد (تقديري على الأقل)</label>
+      <input type="date" id="field-project-due-date" lang="en" required>
 
       <div class="modal-actions">
-        <button type="button" class="btn btn-secondary" id="cancel-task-btn">إلغاء</button>
+        <button type="button" class="btn btn-secondary" id="cancel-project-btn">إلغاء</button>
         <button type="submit" class="btn btn-primary">حفظ</button>
       </div>
     </form>
-  </div>
-</div>
-
-<!-- سلة المهملات -->
-<div id="trash-modal" class="overlay hidden">
-  <div class="modal-box">
-    <h2>سلة المهملات</h2>
-    <div id="trash-list" class="trash-list"></div>
-    <div class="modal-actions">
-      <button type="button" class="btn btn-secondary" id="empty-trash-btn">إفراغ السلة نهائيًا</button>
-      <button type="button" class="btn btn-primary" id="close-trash-btn">إغلاق</button>
-    </div>
-  </div>
-</div>
-
-<!-- لوحة التوازن -->
-<div id="balance-modal" class="overlay hidden">
-  <div class="modal-box">
-    <h2>لوحة التوازن ⚖️</h2>
-    <div id="balance-content" class="balance-content"></div>
-    <div class="modal-actions">
-      <button type="button" class="btn btn-primary" id="close-balance-btn">إغلاق</button>
-    </div>
   </div>
 </div>
 

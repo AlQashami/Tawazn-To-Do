@@ -1,23 +1,31 @@
-# توازن
+# بوصلة
 
-تطبيق ويب بسيط لمتابعة المهام، مخصص لشخصين (أسيل ومنذر). بدون تسجيل دخول، مزامنة لحظية عبر Firebase.
+لوحة قرارات وأولويات لفريق مكوّن من شخصين (أسيل ومنذر)، بدل ما تعتمد المتابعة على الذاكرة أو الرسائل. مزامنة لحظية عبر Firebase، محمية بكلمة سر مشتركة.
+
+## الأقسام
+
+1. **أولويات الأسبوع** — 3 فقط، تُختار بتعليم ⭐ على مشروع من القائمة النشطة.
+2. **المشاريع النشطة** — كل مشروع له مسؤول واحد، خطوة تالية واحدة، وموعد (ولو تقديري).
+3. **بانتظار قرار منذر** — بنود تحتاج قرارًا لا تنفيذًا، تُراجع في الاجتماع وتُحسم بزر "✓ تم البت".
+4. **بنك الأفكار** — أي فكرة تُسجَّل فورًا وتُصنَّف لاحقًا (هذا الأسبوع/هذا الربع/مستقبلية) بدل ما تتحول لمشروع مباشرة.
+5. **الإنجازات** — أرشيف المشاريع المغلقة، مع عداد بسيط لعدد ما أُنجز هذا الشهر.
 
 ## الإعداد لأول مرة
 
-### 1) إنشاء مشروع Firebase
+يستخدم هذا المشروع نفس مشروع Firebase الذي كان يخدم تطبيق "توازن" سابقًا (بنفس بوابة كلمة السر)، فلا حاجة لأي إعداد جديد في Firebase Console سوى نشر [firestore.rules](firestore.rules) المحدّثة:
 
-1. اذهبي إلى [console.firebase.google.com](https://console.firebase.google.com) وأنشئي مشروعًا جديدًا.
-2. من القائمة الجانبية: **Build → Firestore Database → Create database**، واختاري وضع الإنتاج (Production mode) وأقرب موقع لكم.
-3. من **Firestore Database → Rules**، الصقي محتوى ملف [firestore.rules](firestore.rules) كاملاً ثم اضغطي **Publish**.
-4. من **Project settings (⚙️) → General**، انزلي إلى **Your apps**، اضغطي أيقونة الويب `</>` لإنشاء تطبيق ويب جديد، وانسخي كائن `firebaseConfig` الذي يظهر لك.
+**Firestore Database → Rules**، الصقي محتوى [firestore.rules](firestore.rules) كاملاً واضغطي **Publish**.
 
-### 2) ربط المشروع
+إذا احتجتِ إعداد مشروع Firebase من الصفر لاحقًا:
 
-افتحي ملف [js/config.js](js/config.js) وضعي فيه القيم التي نسختِها من Firebase بدل النصوص `YOUR_FIREBASE_...`.
+1. [console.firebase.google.com](https://console.firebase.google.com) → **Firestore Database → Create database** (Production mode).
+2. **Firestore Database → Rules**، الصقي محتوى [firestore.rules](firestore.rules) واضغطي **Publish**.
+3. **Authentication → Sign-in method**، فعّلي Email/Password، ثم من تبويب **Users** أضيفي مستخدمًا بالإيميل الموجود في `AUTH_EMAIL` داخل [js/app.js](js/app.js) وكلمة السر المشتركة.
+4. **Project settings → General → Your apps**، انسخي `firebaseConfig` إلى [js/config.js](js/config.js).
 
-### 3) التشغيل محليًا
+## التشغيل محليًا
 
-التطبيق صفحات HTML/CSS/JS عادية بدون أي خطوة بناء (build). يكفي تشغيل خادم محلي بسيط من داخل مجلد المشروع، مثلاً:
+صفحات HTML/CSS/JS عادية بدون أي خطوة بناء (build):
 
 ```
 python3 -m http.server 8080
@@ -27,11 +35,9 @@ python3 -m http.server 8080
 
 > ملاحظة: فتح `index.html` مباشرة من الملف (بدون خادم) قد لا يعمل بسبب قيود المتصفح على وحدات JavaScript (ES modules).
 
-## النشر على GitHub Pages
+## النشر
 
-1. ارفعي المجلد كمستودع على GitHub.
-2. من إعدادات المستودع: **Settings → Pages → Build and deployment → Source: Deploy from a branch**، واختاري الفرع `main` والمجلد `/ (root)`.
-3. بعد دقيقة أو دقيقتين سيصبح الموقع متاحًا على الرابط الذي يظهر في نفس الصفحة.
+نفس رابط GitHub Pages الحالي لهذا المستودع — يكفي رفع التغييرات (commit + push) على الفرع `main`.
 
 ## الخط
 
@@ -39,7 +45,10 @@ python3 -m http.server 8080
 
 ## بنية البيانات (Firestore)
 
-- **tasks**: `title, assignee, due_date, status, notes, parent_id, sort_order, last_edited_by, last_edited_at`
-- **task_links**: `source_task_id, target_task_id`
+- **projects**: `title, owner, next_action, due_date, status ("نشط"|"منجز"), is_priority, done_at, sort_order, created_at, last_edited_by, last_edited_at`
+- **decisions**: `title, created_by, created_at`
+- **ideas**: `title, stage, created_by, created_at`
 
-لا حاجة لإنشاء المجموعات (collections) يدويًا — تُنشأ تلقائيًا عند إضافة أول مهمة.
+لا حاجة لإنشاء المجموعات (collections) يدويًا — تُنشأ تلقائيًا عند إضافة أول عنصر.
+
+> بيانات تطبيق "توازن" القديمة (مجموعات `tasks`, `task_links`, `task_comments`) لم تُحذف تلقائيًا من Firestore. احذفيها يدويًا من Firebase Console → Firestore Database إذا ما احتجتِها بعد الآن.

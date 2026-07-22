@@ -1,15 +1,18 @@
-// توازن: قواعد أمان Firestore
+// بوصلة: قواعد أمان Firestore
 // من Firebase Console → Firestore Database → Rules، الصقي هذا الكود كاملاً واضغطي Publish.
-// لا يوجد تسجيل دخول في التطبيق، لذا القراءة والكتابة مفتوحة لأي شخص يملك رابط المشروع.
+// الوصول محمي ببوابة كلمة سر مشتركة عبر Firebase Authentication، لذا القراءة والكتابة مسموحة لأي مستخدم مسجّل دخول فقط.
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /tasks/{taskId} {
-      allow read, write: if true;
+    match /projects/{projectId} {
+      allow read, write: if request.auth != null;
     }
-    match /task_links/{linkId} {
-      allow read, write: if true;
+    match /decisions/{decisionId} {
+      allow read, write: if request.auth != null;
+    }
+    match /ideas/{ideaId} {
+      allow read, write: if request.auth != null;
     }
   }
 }
