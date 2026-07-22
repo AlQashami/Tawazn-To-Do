@@ -41,11 +41,11 @@
   --munther-bg: #dfeaee;
   --both-bg: var(--gold-bg);
   --both: var(--gold);
-  --sand: #f6f1e7;
-  --card-bg: #f9f3e6;
+  --sand: #ece3d0;
+  --card-bg: #f2ead8;
   --text: #26241f;
   --text-muted: #837a6b;
-  --border: #e3dac9;
+  --border: #ddd0b6;
   --danger: #a6382c;
   --radius: 10px;
   --shadow: 0 1px 3px rgba(30, 25, 10, 0.08);
